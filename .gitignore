@@ -1,0 +1,12 @@
+# Ignore doc folder - documentation only, not for GitHub
+doc/
+
+# Node modules
+node_modules/
+
+# Build output
+dist/
+
+# Environment files
+.env
+.env.local
