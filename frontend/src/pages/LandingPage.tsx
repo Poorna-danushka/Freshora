@@ -12,7 +12,6 @@ import type { Product } from '@/types';
 
 // Images
 import heroProduce from '@/assets/hero_produce.png';
-import heroBasket from '@/assets/hero_basket.png';
 import promoVegetables from '@/assets/promo_vegetables.png';
 import promoFruits from '@/assets/promo_fruits.png';
 import promoSnacks from '@/assets/promo_snacks.png';

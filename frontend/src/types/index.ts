@@ -142,9 +142,12 @@ export interface DeliveryTracking {
 export interface User {
   id: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phone?: string;
   avatar?: string;
+  role?: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN';
 }
 
 export interface AuthTokens {

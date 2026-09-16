@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Mail, Lock, Eye, EyeOff, ArrowRight, Star } from 'lucide-react';
-import { authApi } from '@/api/auth';
+import { authApi, getDashboardPath } from '@/api/auth';
 import { useAuthStore } from '@/store/useAuthStore';
 import loginCinematic from '@/assets/login_cinematic.png';
 
@@ -48,8 +48,16 @@ export function LoginPage() {
 
   const { mutate: login, isPending } = useMutation({
     mutationFn: authApi.login,
-    onSuccess: ({ user }) => { setUser(user); navigate('/'); },
-    onError: () => setError('email', { message: 'Invalid email or password' }),
+    onSuccess: ({ user }) => {
+      setUser(user);
+      navigate(getDashboardPath(user.role));
+    },
+    onError: (error) => {
+      const message = error instanceof Error && 'response' in error
+        ? ((error as { response?: { data?: { message?: string } } }).response?.data?.message ?? 'Invalid email or password')
+        : 'Unable to connect to the server';
+      setError('email', { message });
+    },
   });
 
   return (

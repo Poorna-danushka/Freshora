@@ -17,7 +17,7 @@ export const StoreSwitchModal: React.FC<Props> = ({
   currentStoreName,
   newStoreName,
 }) => {
-  const { itemCount } = useCartStore();
+  const itemCount = useCartStore((state) => state.totalItems());
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {

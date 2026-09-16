@@ -5,15 +5,15 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { Link, useNavigate } from 'react-router-dom';
 import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Gift } from 'lucide-react';
-import { authApi } from '@/api/auth';
+import { authApi, getDashboardPath } from '@/api/auth';
 import { useAuthStore } from '@/store/useAuthStore';
 import signupBg from '@/assets/signup_bg.png';
 
 const schema = z.object({
-  name: z.string().min(2, 'Full name required'),
+  firstName: z.string().min(2, 'First name is required'),
+  lastName: z.string().min(2, 'Last name is required'),
   email: z.string().email('Enter a valid email'),
-  phone: z.string().min(9, 'Enter a valid number'),
-  password: z.string().min(6, 'Min. 6 characters'),
+  password: z.string().min(8, 'Min. 8 characters'),
   confirmPassword: z.string(),
 }).refine(d => d.password === d.confirmPassword, {
   message: 'Passwords do not match',
@@ -132,20 +132,26 @@ export function SignupPage() {
   });
 
   const passwordValue = watch('password', '');
-  const nameValue     = watch('name', '');
-  const emailValue    = watch('email', '');
-
+  const nameValue = `${watch('firstName', '')} ${watch('lastName', '')}`.trim();
+  const emailValue = watch('email', '');
 
   const { mutate: signup, isPending } = useMutation({
     mutationFn: (d: SignupForm) =>
-      authApi.register({ name: d.name, email: d.email, phone: d.phone, password: d.password }),
-    onSuccess: ({ user }) => { setUser(user); navigate('/'); },
+      authApi.register({
+        firstName: d.firstName,
+        lastName: d.lastName,
+        email: d.email,
+        password: d.password,
+      }),
+    onSuccess: ({ user }) => {
+      setUser(user);
+      navigate(getDashboardPath(user.role));
+    },
     onError: () => setError('email', { message: 'Account already exists with this email' }),
   });
 
-  // Step 1 → 2 handler with partial validation
   const handleNext = async () => {
-    const ok = await trigger(['name', 'email', 'phone']);
+    const ok = await trigger(['firstName', 'lastName', 'email']);
     if (ok) setStep(2);
   };
 
@@ -238,38 +244,22 @@ export function SignupPage() {
 
               {/* ── STEP 1 ── */}
               <div className={`space-y-4 transition-all duration-400 ${step === 1 ? 'block' : 'hidden'}`}>
-                {/* Name */}
                 <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Full Name</label>
-                  <GlassInput icon={User} id="signup-name" placeholder="Kamal Perera"
-                    error={errors.name?.message} {...register('name')} />
+                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">First Name</label>
+                  <GlassInput icon={User} id="signup-first-name" placeholder="Kamal"
+                    error={errors.firstName?.message} {...register('firstName')} />
                 </div>
 
-                {/* Email */}
+                <div>
+                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Last Name</label>
+                  <GlassInput icon={User} id="signup-last-name" placeholder="Perera"
+                    error={errors.lastName?.message} {...register('lastName')} />
+                </div>
+
                 <div>
                   <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Email Address</label>
                   <GlassInput icon={Mail} id="signup-email" type="email" placeholder="kamal@example.com"
                     error={errors.email?.message} {...register('email')} />
-                </div>
-
-                {/* Phone */}
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Mobile Number</label>
-                  <div>
-                    <div className="relative">
-                      <div className="absolute left-3.5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 z-10 pointer-events-none">
-                        <span className="text-sm leading-none">🇱🇰</span>
-                        <div className="w-px h-3.5 bg-white/20" />
-                      </div>
-                      <input {...register('phone')} id="signup-phone" type="tel" placeholder="077 123 4567"
-                        className="w-full pl-14 pr-4 h-11 rounded-xl text-sm outline-none text-white placeholder:text-white/30 transition-all"
-                        style={{ background: 'rgba(255,255,255,0.08)', border: errors.phone ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)' }}
-                        onFocus={e => e.currentTarget.style.border = '1.5px solid rgba(74,222,128,0.6)'}
-                        onBlur={e => e.currentTarget.style.border = errors.phone ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)'}
-                      />
-                    </div>
-                    {errors.phone && <p className="text-red-400 text-[10px] mt-1">⚠ {errors.phone.message}</p>}
-                  </div>
                 </div>
 
                 <button type="button" onClick={handleNext}

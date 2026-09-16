@@ -9,6 +9,7 @@ import { useActiveStoreStore } from '@/store/useActiveStoreStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useLocationStore } from '@/store/useLocationStore';
+import { authApi } from '@/api/auth';
 
 export function Navbar() {
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -308,7 +309,11 @@ export function Navbar() {
                       </Link>
                       <div className="mx-2 my-1.5 h-px bg-gray-100" />
                       <button
-                        onClick={() => { logout(); setDropdownOpen(false); }}
+                        onClick={async () => {
+                          await authApi.logout();
+                          logout();
+                          setDropdownOpen(false);
+                        }}
                         className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-red-50 text-sm text-red-500 transition-colors group"
                       >
                         <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center group-hover:bg-red-100 transition-colors">

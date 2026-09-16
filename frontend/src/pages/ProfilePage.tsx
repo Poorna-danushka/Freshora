@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { 
   Package, MapPin, CreditCard, Bell, Settings, 
   HelpCircle, FileText, LogOut, ChevronRight, 
-  User, Edit2, Lock 
+  Edit2, Lock 
 } from 'lucide-react';
 
 export default function ProfilePage() {
