@@ -153,7 +153,7 @@ public class OrderService {
                 .toList();
         orderItemRepository.saveAllAndFlush(orderItems);
 
-        OrderResponse response = toResponse(order, orderItems);
+        OrderResponse response = OrderResponseMapper.toResponse(order, orderItems);
         IdempotencyRecord record = IdempotencyRecord.builder()
                 .idemKey(idempotencyKey)
                 .user(customer)
@@ -315,11 +315,4 @@ public class OrderService {
         return snapshot;
     }
 
-    private OrderResponse toResponse(Order order, List<OrderItem> items) {
-        return new OrderResponse(order.getId(), order.getOrderNumber(), order.getStatus(), order.getSubtotal(),
-                order.getDeliveryFee(), order.getDiscountAmount(), order.getTotalAmount(), order.getVersion(),
-                order.getCreatedAt(), items.stream().map(item -> new OrderResponse.Item(
-                item.getProductId(), item.getProductName(), item.getUnitPrice(), item.getQuantity(),
-                item.getLineTotal())).toList());
-    }
 }

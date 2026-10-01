@@ -2,6 +2,7 @@ package Freshora.Backend.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -17,6 +18,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.UUID;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -32,9 +34,11 @@ public class GlobalExceptionHandler {
                 Instant.now(),
                 HttpStatus.BAD_REQUEST.value(),
                 "VALIDATION_ERROR",
+                "VALIDATION_ERROR",
                 "Invalid request",
                 request.getRequestURI(),
-                fieldErrors
+                fieldErrors,
+                requestId()
         );
         return ResponseEntity.badRequest().body(error);
     }
@@ -81,7 +85,14 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(ConflictException.class)
     public ResponseEntity<ApiError> handleConflict(ConflictException ex, HttpServletRequest request) {
-        return buildError(HttpStatus.CONFLICT, "CONFLICT", ex.getMessage(), request.getRequestURI(), null);
+        return buildError(HttpStatus.CONFLICT, ex.getCode(), "CONFLICT", ex.getMessage(), request.getRequestURI(), null);
+    }
+
+    @ExceptionHandler({OptimisticLockingFailureException.class, jakarta.persistence.OptimisticLockException.class})
+    public ResponseEntity<ApiError> handleOptimisticLockingFailure(
+            RuntimeException ex, HttpServletRequest request) {
+        return buildError(HttpStatus.CONFLICT, "ORDER_VERSION_CONFLICT", "CONFLICT",
+                "The order was changed by another request", request.getRequestURI(), null);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)
@@ -105,7 +116,17 @@ public class GlobalExceptionHandler {
     }
 
     private ResponseEntity<ApiError> buildError(HttpStatus status, String error, String message, String path, Map<String, String> fieldErrors) {
-        ApiError apiError = new ApiError(Instant.now(), status.value(), error, message, path, fieldErrors);
+        return buildError(status, error, error, message, path, fieldErrors);
+    }
+
+    private ResponseEntity<ApiError> buildError(
+            HttpStatus status, String code, String error, String message, String path, Map<String, String> fieldErrors) {
+        ApiError apiError = new ApiError(
+                Instant.now(), status.value(), error, code, message, path, fieldErrors, requestId());
         return ResponseEntity.status(status).body(apiError);
+    }
+
+    private String requestId() {
+        return UUID.randomUUID().toString();
     }
 }
