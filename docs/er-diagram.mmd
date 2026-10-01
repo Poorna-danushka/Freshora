@@ -1,3 +1,5 @@
+%% CURRENT DATABASE: tables created by Flyway V1-V3. Columns without an explicit
+%% VARCHAR length use VARCHAR(255); all DATETIME columns use DATETIME(6).
 erDiagram
   USERS {
     BIGINT id PK "AUTO_INCREMENT"
@@ -227,9 +229,18 @@ erDiagram
   ORDERS ||--o{ ORDER_EVENTS : history
   ORDERS |o--o{ IDEMPOTENCY_RECORDS : result_of
   ORDERS ||--o{ PAYMENTS : paid_by
-%% UUIDs outside users and addresses are stored as CHAR(36); JSON is MySQL JSON and timestamps are DATETIME(6).
-%% Other unique keys: application_documents.storage_key and orders.order_number; payments.provider_ref and payments.idempotency_key.
-%% idempotency_records has a unique key over (user_id, idem_key, operation); order_events has a unique key over (order_id, version).
-%% Roles remain a single users.role column; V3 renames DELIVERY_RIDER values to DRIVER.
-%% Token tables remain refresh_tokens, password_reset_tokens, and account_setup_tokens; there is no AUTH_TOKENS table.
-%% Extra tables beyond the original ER: store_applications, driver_applications, application_documents, application_review_history.
+%% Existing unique keys: users.email, refresh_tokens.token_id, application_documents.storage_key,
+%% orders.order_number, (order_events.order_id,version), (idempotency_records.user_id,idem_key,operation),
+%% payments.provider_ref, payments.idempotency_key. Password/setup token hashes are not unique.
+%% Existing FKs are only the drawn relationships; application_documents.application_id is polymorphic
+%% and has no FK. orders.store_id and order_items.product_id/substitute_product_id have no FKs.
+%% User/address/auth/application IDs are BIGINT AUTO_INCREMENT; order-domain UUIDs are CHAR(36).
+%% JSON columns use MySQL JSON; timestamps use DATETIME(6); coordinates are DOUBLE.
+%% Roles are stored in one users.role column. V3 updates DELIVERY_RIDER values to DRIVER.
+%% There are no ROLES, USER_ROLES, or AUTH_TOKENS tables.
+%% Payments currently exists only as a table; there is no payment JPA entity, provider, or callback code.
+%% Extra current tables: store_applications, driver_applications, application_documents, application_review_history.
+%% PLANNED FUTURE TABLES (not created by V1-V3): carts, cart_items, products, stores, categories, inventory,
+%% inventory_reservations, inventory_adjustments, payment_callbacks, refunds, deliveries, drivers,
+%% delivery_offers, driver_locations, notifications, processed_events, dead_letter_messages, audit_logs.
+%% The planned stores/products/inventory tables are owned by other team members; no FKs to them exist yet.

@@ -17,7 +17,7 @@ import java.util.Collection;
 import java.util.List;
 
 @Entity
-@Table(name = "users", uniqueConstraints = {@UniqueConstraint(columnNames = "email")})
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(name = "uk_users_email", columnNames = "email"))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -35,7 +35,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String lastName;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String email;
 
     @Column(nullable = false)

@@ -15,10 +15,12 @@ import java.util.Map;
 import java.util.UUID;
 
 @Entity
-@Table(name = "orders", indexes = {
-        @Index(name = "idx_orders_customer_created", columnList = "customer_id, created_at"),
-        @Index(name = "idx_orders_store_status", columnList = "store_id, status")
-})
+@Table(name = "orders",
+        uniqueConstraints = @UniqueConstraint(name = "uk_orders_order_number", columnNames = "order_number"),
+        indexes = {
+                @Index(name = "idx_orders_customer_created", columnList = "customer_id, created_at"),
+                @Index(name = "idx_orders_store_status", columnList = "store_id, status")
+        })
 @Getter
 @Setter
 @NoArgsConstructor
@@ -30,7 +32,7 @@ public class Order {
     @Column(length = 36, nullable = false, updatable = false)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     private String orderNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
