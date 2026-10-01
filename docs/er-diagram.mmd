@@ -1,0 +1,235 @@
+erDiagram
+  USERS {
+    BIGINT id PK "AUTO_INCREMENT"
+    VARCHAR first_name
+    VARCHAR last_name
+    VARCHAR email UK
+    VARCHAR password
+    VARCHAR phone "nullable"
+    VARCHAR profile_image_url "nullable"
+    VARCHAR role "CUSTOMER/STORE_MANAGER/STORE_STAFF/DRIVER/ADMIN"
+    BOOLEAN enabled
+    VARCHAR status "PENDING/ACTIVE/DISABLED/SUSPENDED"
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  ADDRESSES {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT user_id FK
+    VARCHAR label
+    VARCHAR recipient_name
+    VARCHAR phone
+    VARCHAR address_line1
+    VARCHAR address_line2 "nullable"
+    VARCHAR city
+    VARCHAR district
+    VARCHAR postal_code "nullable"
+    DOUBLE latitude "nullable"
+    DOUBLE longitude "nullable"
+    BOOLEAN is_default
+    DATETIME created_at
+    DATETIME updated_at
+  }
+  REFRESH_TOKENS {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT user_id FK
+    VARCHAR token_id UK
+    DATETIME expires_at
+    DATETIME created_at
+    DATETIME revoked_at "nullable"
+  }
+  PASSWORD_RESET_TOKENS {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT user_id FK
+    VARCHAR token_hash
+    DATETIME expires_at
+    DATETIME used_at "nullable"
+    DATETIME created_at
+  }
+  ACCOUNT_SETUP_TOKENS {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT user_id FK
+    VARCHAR token_hash
+    DATETIME expires_at
+    DATETIME used_at "nullable"
+    DATETIME created_at
+  }
+  STORE_APPLICATIONS {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT applicant_user_id FK "nullable"
+    VARCHAR applicant_name
+    VARCHAR email
+    VARCHAR contact_number
+    VARCHAR alternate_contact_number "nullable"
+    VARCHAR preferred_contact_method
+    VARCHAR applicant_notes "nullable"
+    VARCHAR store_name
+    VARCHAR store_contact_number
+    VARCHAR store_email "nullable"
+    VARCHAR store_address
+    VARCHAR city
+    VARCHAR province "nullable"
+    VARCHAR postal_code "nullable"
+    VARCHAR store_type
+    VARCHAR registration_number "nullable"
+    VARCHAR store_description "nullable"
+    VARCHAR status
+    BIGINT reviewed_by FK "nullable"
+    DATETIME reviewed_at "nullable"
+    VARCHAR review_notes "nullable"
+    DATETIME submitted_at
+    DATETIME updated_at
+  }
+  DRIVER_APPLICATIONS {
+    BIGINT id PK "AUTO_INCREMENT"
+    BIGINT applicant_user_id FK "nullable"
+    VARCHAR full_name
+    VARCHAR email
+    VARCHAR contact_number
+    VARCHAR date_of_birth
+    VARCHAR address
+    VARCHAR city
+    VARCHAR province "nullable"
+    VARCHAR emergency_contact_name "nullable"
+    VARCHAR emergency_contact_number "nullable"
+    VARCHAR vehicle_type
+    VARCHAR vehicle_registration_number
+    VARCHAR vehicle_make "nullable"
+    VARCHAR vehicle_model "nullable"
+    VARCHAR vehicle_year "nullable"
+    VARCHAR vehicle_color "nullable"
+    VARCHAR ownership_type
+    VARCHAR preferred_area
+    VARCHAR preferred_working_days "nullable"
+    VARCHAR preferred_working_hours "nullable"
+    VARCHAR delivery_experience "nullable"
+    BOOLEAN has_smartphone
+    BOOLEAN has_delivery_bag "nullable"
+    VARCHAR additional_notes "nullable"
+    VARCHAR status
+    BIGINT reviewed_by FK "nullable"
+    DATETIME reviewed_at "nullable"
+    VARCHAR review_notes "nullable"
+    DATETIME submitted_at
+    DATETIME updated_at
+  }
+  APPLICATION_DOCUMENTS {
+    BIGINT id PK "AUTO_INCREMENT"
+    VARCHAR application_type
+    BIGINT application_id "polymorphic owner; no FK"
+    VARCHAR document_type
+    VARCHAR original_file_name
+    VARCHAR storage_key UK
+    VARCHAR content_type
+    BIGINT file_size
+    DATETIME uploaded_at
+  }
+  APPLICATION_REVIEW_HISTORY {
+    BIGINT id PK "AUTO_INCREMENT"
+    VARCHAR application_type
+    BIGINT application_id "polymorphic owner; no FK"
+    VARCHAR previous_status "nullable"
+    VARCHAR new_status
+    BIGINT reviewed_by FK "nullable"
+    VARCHAR note "nullable"
+    DATETIME created_at
+  }
+  ORDERS {
+    CHAR id PK "36-character UUID"
+    VARCHAR order_number UK
+    BIGINT customer_id FK
+    CHAR store_id "36-character UUID; no FK"
+    BIGINT address_id FK
+    JSON address_snapshot
+    VARCHAR status
+    DECIMAL subtotal
+    DECIMAL delivery_fee
+    DECIMAL discount_amount
+    DECIMAL total_amount
+    DECIMAL commission_rate
+    DECIMAL commission_amount
+    DECIMAL store_amount
+    INT version
+    DATETIME created_at
+    DATETIME cancelled_at "nullable"
+  }
+  ORDER_ITEMS {
+    CHAR id PK "36-character UUID"
+    CHAR order_id FK
+    CHAR product_id "36-character UUID; no FK"
+    CHAR substitute_product_id "nullable; no FK"
+    VARCHAR product_name
+    DECIMAL unit_price
+    INT quantity
+    DECIMAL line_total
+    VARCHAR pick_status
+  }
+  ORDER_EVENTS {
+    CHAR id PK "36-character UUID"
+    CHAR order_id FK
+    VARCHAR event_type
+    VARCHAR from_status "nullable"
+    VARCHAR to_status
+    INT version "UK with order_id"
+    JSON payload
+    DATETIME created_at
+  }
+  IDEMPOTENCY_RECORDS {
+    CHAR id PK "36-character UUID"
+    VARCHAR idem_key
+    BIGINT user_id FK
+    VARCHAR operation
+    VARCHAR request_hash
+    VARCHAR status
+    JSON response "nullable"
+    CHAR order_id FK "nullable"
+    DATETIME expires_at
+    DATETIME created_at
+  }
+  OUTBOX_EVENTS {
+    CHAR id PK "36-character UUID"
+    VARCHAR aggregate_type
+    CHAR aggregate_id "36-character UUID"
+    VARCHAR event_type
+    INT version
+    JSON payload
+    VARCHAR status
+    DATETIME created_at
+    DATETIME published_at "nullable"
+    INT attempts
+    VARCHAR last_error "nullable"
+  }
+  PAYMENTS {
+    CHAR id PK "36-character UUID"
+    CHAR order_id FK
+    VARCHAR status
+    DECIMAL amount
+    VARCHAR payment_method
+    VARCHAR provider_ref UK "nullable"
+    VARCHAR idempotency_key UK "nullable"
+    INT attempts
+    DATETIME updated_at
+  }
+
+  USERS ||--o{ ADDRESSES : owns
+  USERS ||--o{ REFRESH_TOKENS : owns
+  USERS ||--o{ PASSWORD_RESET_TOKENS : owns
+  USERS ||--o{ ACCOUNT_SETUP_TOKENS : owns
+  USERS |o--o{ STORE_APPLICATIONS : applies
+  USERS |o--o{ STORE_APPLICATIONS : reviews
+  USERS |o--o{ DRIVER_APPLICATIONS : applies
+  USERS |o--o{ DRIVER_APPLICATIONS : reviews
+  USERS |o--o{ APPLICATION_REVIEW_HISTORY : reviews
+  USERS ||--o{ ORDERS : places
+  USERS ||--o{ IDEMPOTENCY_RECORDS : submits
+  ADDRESSES ||--o{ ORDERS : used_by
+  ORDERS ||--o{ ORDER_ITEMS : contains
+  ORDERS ||--o{ ORDER_EVENTS : history
+  ORDERS |o--o{ IDEMPOTENCY_RECORDS : result_of
+  ORDERS ||--o{ PAYMENTS : paid_by
+%% UUIDs outside users and addresses are stored as CHAR(36); JSON is MySQL JSON and timestamps are DATETIME(6).
+%% Other unique keys: application_documents.storage_key and orders.order_number; payments.provider_ref and payments.idempotency_key.
+%% idempotency_records has a unique key over (user_id, idem_key, operation); order_events has a unique key over (order_id, version).
+%% Roles remain a single users.role column; V3 renames DELIVERY_RIDER values to DRIVER.
+%% Token tables remain refresh_tokens, password_reset_tokens, and account_setup_tokens; there is no AUTH_TOKENS table.
+%% Extra tables beyond the original ER: store_applications, driver_applications, application_documents, application_review_history.
