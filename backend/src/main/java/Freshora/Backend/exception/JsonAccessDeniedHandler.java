@@ -9,6 +9,7 @@ import org.springframework.security.web.access.AccessDeniedHandler;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.UUID;
 
 public class JsonAccessDeniedHandler implements AccessDeniedHandler {
 
@@ -23,9 +24,11 @@ public class JsonAccessDeniedHandler implements AccessDeniedHandler {
                 Instant.now(),
                 HttpServletResponse.SC_FORBIDDEN,
                 "FORBIDDEN",
+                "FORBIDDEN",
                 "Access denied",
                 request.getRequestURI(),
-                null
+                null,
+                UUID.randomUUID().toString()
         );
 
         response.setCharacterEncoding("UTF-8");

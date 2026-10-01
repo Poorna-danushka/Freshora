@@ -34,7 +34,6 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
-import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -195,20 +194,15 @@ public class AuthService {
     @Transactional
     public MessageResponse logout(HttpServletRequest request, HttpServletResponse response) {
         String refreshTokenValue = extractCookieValue(request, cookieProperties.getRefreshCookieName());
-        if (refreshTokenValue != null && !refreshTokenValue.isBlank()) {
-            try {
-                String tokenId = jwtService.extractJti(refreshTokenValue);
-                refreshTokenRepository.findByTokenId(tokenId).ifPresent(token -> {
-                    token.setRevokedAt(Instant.now());
-                    refreshTokenRepository.save(token);
-                });
-            } catch (Exception ignored) {
-                // Ignore malformed refresh tokens and still clear cookies.
-            }
-        }
-
         cookieSupport.clearCookie(response, cookieProperties.getAccessCookieName(), "/");
         cookieSupport.clearCookie(response, cookieProperties.getRefreshCookieName(), "/api/auth");
+        if (refreshTokenValue != null && jwtService.isTokenValid(refreshTokenValue, "refresh")) {
+            String tokenId = jwtService.extractJti(refreshTokenValue);
+            refreshTokenRepository.findByTokenId(tokenId).ifPresent(token -> {
+                token.setRevokedAt(Instant.now());
+                refreshTokenRepository.save(token);
+            });
+        }
         return new MessageResponse("Logout successful");
     }
 
@@ -333,30 +327,22 @@ public class AuthService {
     }
 
     private PasswordResetToken findMatchingPasswordResetToken(String rawToken) {
-        List<User> possibleUsers = userRepository.findAll();
-        for (User user : possibleUsers) {
-            for (PasswordResetToken candidate : passwordResetTokenRepository.findByUserOrderByCreatedAtDesc(user)) {
-                if (candidate.getUsedAt() != null || candidate.getExpiresAt().isBefore(Instant.now())) {
-                    continue;
-                }
-                if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
-                    return candidate;
-                }
+        Instant now = Instant.now();
+        for (PasswordResetToken candidate : passwordResetTokenRepository
+                .findByUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(now)) {
+            if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
+                return candidate;
             }
         }
         throw new AuthenticationException("Password reset token is invalid or expired");
     }
 
     private AccountSetupToken findMatchingAccountSetupToken(String rawToken) {
-        List<User> possibleUsers = userRepository.findAll();
-        for (User user : possibleUsers) {
-            for (AccountSetupToken candidate : accountSetupTokenRepository.findByUserOrderByCreatedAtDesc(user)) {
-                if (candidate.getUsedAt() != null || candidate.getExpiresAt().isBefore(Instant.now())) {
-                    continue;
-                }
-                if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
-                    return candidate;
-                }
+        Instant now = Instant.now();
+        for (AccountSetupToken candidate : accountSetupTokenRepository
+                .findByUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(now)) {
+            if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
+                return candidate;
             }
         }
         throw new AuthenticationException("Account setup token is invalid or expired");

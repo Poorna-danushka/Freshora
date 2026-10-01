@@ -6,7 +6,9 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 
 @Entity
-@Table(name = "application_documents", indexes = @Index(name = "idx_application_document_owner", columnList = "applicationType,applicationId"))
+@Table(name = "application_documents",
+        uniqueConstraints = @UniqueConstraint(name = "uk_application_documents_storage_key", columnNames = "storage_key"),
+        indexes = @Index(name = "idx_application_document_owner", columnList = "applicationType,applicationId"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ApplicationDocument {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
@@ -14,7 +16,7 @@ public class ApplicationDocument {
     @Column(nullable = false) private Long applicationId;
     @Column(nullable = false) private String documentType;
     @Column(nullable = false) private String originalFileName;
-    @Column(nullable = false, unique = true) private String storageKey;
+    @Column(nullable = false) private String storageKey;
     @Column(nullable = false) private String contentType;
     @Column(nullable = false) private long fileSize;
     @CreationTimestamp @Column(nullable = false, updatable = false) private Instant uploadedAt;

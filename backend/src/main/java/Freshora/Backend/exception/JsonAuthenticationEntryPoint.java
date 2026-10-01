@@ -9,6 +9,7 @@ import org.springframework.security.web.AuthenticationEntryPoint;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.UUID;
 
 public class JsonAuthenticationEntryPoint implements AuthenticationEntryPoint {
 
@@ -23,9 +24,11 @@ public class JsonAuthenticationEntryPoint implements AuthenticationEntryPoint {
                 Instant.now(),
                 HttpServletResponse.SC_UNAUTHORIZED,
                 "UNAUTHORIZED",
+                "UNAUTHORIZED",
                 "Authentication required",
                 request.getRequestURI(),
-                null
+                null,
+                UUID.randomUUID().toString()
         );
 
         response.setCharacterEncoding("UTF-8");

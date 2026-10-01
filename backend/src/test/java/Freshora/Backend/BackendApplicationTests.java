@@ -495,7 +495,7 @@ class BackendApplicationTests {
     }
 
     @Test
-    void deliveryRider_cannotAccessAdminApplicationList() throws Exception {
+    void driver_cannotAccessAdminApplicationList() throws Exception {
         String email = "rider-sec@test.com";
         userRepository.save(User.builder()
                 .firstName("Delivery")
