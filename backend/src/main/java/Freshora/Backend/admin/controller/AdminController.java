@@ -3,6 +3,7 @@ package Freshora.Backend.admin.controller;
 import Freshora.Backend.admin.dto.CreateStaffAccountRequest;
 import Freshora.Backend.auth.dto.UserResponse;
 import Freshora.Backend.auth.service.AuthService;
+import Freshora.Backend.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -19,6 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminController {
     private final AuthService authService;
+    private final UserService userService;
 
     @PostMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
@@ -29,6 +31,6 @@ public class AdminController {
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
     public List<UserResponse> getUsers() {
-        return List.of();
+        return userService.getAllUsers();
     }
 }

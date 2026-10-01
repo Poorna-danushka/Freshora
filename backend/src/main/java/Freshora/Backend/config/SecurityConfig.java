@@ -47,7 +47,10 @@ public class SecurityConfig {
                                 "/api/auth/register",
                                 "/api/auth/login",
                                 "/api/auth/logout",
-                                "/api/auth/refresh").permitAll()
+                                "/api/auth/refresh",
+                                "/api/auth/forgot-password",
+                                "/api/auth/reset-password",
+                                "/api/auth/setup-account").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/locations/**",
                                 "/api/stores/**",
