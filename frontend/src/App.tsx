@@ -1,10 +1,12 @@
-import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { useLayoutEffect } from 'react';
+import { BrowserRouter, Routes, Route, Outlet, useLocation } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Navbar } from '@/components/layout/Navbar';
 import { Footer } from '@/components/layout/Footer';
 import { MobileBottomNav } from '@/components/layout/MobileBottomNav';
 import { AuthInitializer } from '@/components/auth/AuthInitializer';
 import { ProtectedRoute, GuestOnlyRoute } from '@/components/auth/ProtectedRoute';
+import { AdminLayout } from '@/components/admin/AdminLayout';
 import { LandingPage } from '@/pages/LandingPage';
 import { StorePage } from '@/pages/StorePage';
 import CartPage from '@/pages/CartPage';
@@ -20,17 +22,25 @@ import ProfilePage from '@/pages/ProfilePage';
 import { UserDashboardPage } from '@/pages/UserDashboardPage';
 import { AdminDashboardPage } from '@/pages/AdminDashboardPage';
 import { RoleDashboardPage } from '@/pages/RoleDashboardPage';
+import { JoinFreshoraPage } from '@/pages/JoinFreshoraPage';
+import { JoinStorePage } from '@/pages/JoinStorePage';
+import { JoinStoreSuccessPage } from '@/pages/JoinStoreSuccessPage';
+import { JoinDriverPage } from '@/pages/JoinDriverPage';
+import { JoinDriverSuccessPage } from '@/pages/JoinDriverSuccessPage';
+import { StoreManagementPage } from '@/pages/admin/StoreManagementPage';
+import { DriverManagementPage } from '@/pages/admin/DriverManagementPage';
+import { UserManagementPage } from '@/pages/admin/UserManagementPage';
+import { StoreStaffPlaceholderPage, StoreWorkspacePage } from '@/pages/store/StoreWorkspacePages';
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      staleTime: 1000 * 60 * 5, // 5 minutes
+      staleTime: 1000 * 60 * 5,
       retry: 1,
     },
   },
 });
 
-// Layout with Navbar + Footer
 function MainLayout() {
   return (
     <div className="flex flex-col min-h-screen">
@@ -44,30 +54,38 @@ function MainLayout() {
   );
 }
 
-// Auth layout — no navbar/footer
 function AuthLayout() {
   return <Outlet />;
+}
+
+function ScrollToTop() {
+  const { pathname, search } = useLocation();
+
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [pathname, search]);
+
+  return null;
 }
 
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        {/*
-          AuthInitializer validates the persisted Zustand session against the
-          server on every page load. Expired tokens clear the store so the UI
-          doesn't falsely show the user as logged in.
-        */}
+        <ScrollToTop />
         <AuthInitializer>
           <Routes>
-            {/* ── Main layout (public pages) ── */}
             <Route element={<MainLayout />}>
               <Route path="/" element={<LandingPage />} />
+              <Route path="/join" element={<JoinFreshoraPage />} />
+              <Route path="/join/store" element={<JoinStorePage />} />
+              <Route path="/join/store/success" element={<JoinStoreSuccessPage />} />
+              <Route path="/join/driver" element={<JoinDriverPage />} />
+              <Route path="/join/driver/success" element={<JoinDriverSuccessPage />} />
               <Route path="/store/:storeId" element={<StorePage />} />
               <Route path="/cart" element={<CartPage />} />
             </Route>
 
-            {/* ── Authenticated-only pages (any role) ── */}
             <Route element={<ProtectedRoute />}>
               <Route element={<MainLayout />}>
                 <Route path="/checkout" element={<CheckoutPage />} />
@@ -78,42 +96,50 @@ export default function App() {
               </Route>
             </Route>
 
-            {/* ── Customer dashboard ── */}
             <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
               <Route element={<MainLayout />}>
                 <Route path="/user-dashboard" element={<UserDashboardPage />} />
               </Route>
             </Route>
 
-            {/* ── Admin dashboard ── */}
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
               <Route element={<MainLayout />}>
-                <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
+                <Route element={<AdminLayout />}>
+                  <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
+                  <Route path="/admin/store-management" element={<StoreManagementPage />} />
+                  <Route path="/admin/driver-management" element={<DriverManagementPage />} />
+                  <Route path="/admin/user-management" element={<UserManagementPage />} />
+                </Route>
               </Route>
             </Route>
 
-            {/* ── Store Manager dashboard ── */}
             <Route element={<ProtectedRoute allowedRoles={['STORE_MANAGER']} />}>
               <Route element={<MainLayout />}>
                 <Route path="/store-manager-dashboard" element={<RoleDashboardPage />} />
+                <Route path="/store/staff" element={<StoreStaffPlaceholderPage title="Store staff" description="Approved store managers will invite staff who belong to this store only." />} />
+                <Route path="/store/staff/invitations" element={<StoreStaffPlaceholderPage title="Staff invitations" description="Invitation tracking will use a dedicated store-staff API. It is not implemented yet." />} />
+                <Route path="/store/staff/add" element={<StoreStaffPlaceholderPage title="Add store staff" description="Store managers can add staff only after the store is approved. This page does not create accounts yet." />} />
               </Route>
             </Route>
 
-            {/* ── Store Staff dashboard ── */}
+            <Route element={<ProtectedRoute allowedRoles={['STORE_MANAGER', 'STORE_STAFF']} />}>
+              <Route element={<MainLayout />}>
+                <Route path="/store" element={<StoreWorkspacePage />} />
+              </Route>
+            </Route>
+
             <Route element={<ProtectedRoute allowedRoles={['STORE_STAFF']} />}>
               <Route element={<MainLayout />}>
                 <Route path="/store-staff-dashboard" element={<RoleDashboardPage />} />
               </Route>
             </Route>
 
-            {/* ── Delivery Rider dashboard ── */}
             <Route element={<ProtectedRoute allowedRoles={['DELIVERY_RIDER']} />}>
               <Route element={<MainLayout />}>
                 <Route path="/delivery-rider-dashboard" element={<RoleDashboardPage />} />
               </Route>
             </Route>
 
-            {/* ── Auth routes — redirect away if already logged in ── */}
             <Route element={<GuestOnlyRoute />}>
               <Route element={<AuthLayout />}>
                 <Route path="/login" element={<LoginPage />} />
@@ -122,7 +148,6 @@ export default function App() {
               </Route>
             </Route>
 
-            {/* 404 */}
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </AuthInitializer>

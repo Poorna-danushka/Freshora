@@ -147,6 +147,7 @@ export interface User {
   email: string;
   phone?: string;
   avatar?: string;
+  accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
   role?: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN';
 }
 

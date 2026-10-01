@@ -1,6 +1,7 @@
 import type { CartItem, Product } from '@/types';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useAuthStore } from '@/store/useAuthStore';
 
 interface CartState {
   items: CartItem[];
@@ -20,6 +21,9 @@ export const useCartStore = create<CartState>()(
       storeId: null,
 
       addItem: (product) => {
+        const auth = useAuthStore.getState();
+        if (!auth.isAuthenticated || !auth.user) return;
+
         const { items, storeId } = get();
         // If adding from a different store, clear cart
         if (storeId && storeId !== product.storeId) {

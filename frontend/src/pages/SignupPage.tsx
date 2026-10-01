@@ -3,130 +3,109 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
-import { Link, useNavigate } from 'react-router-dom';
-import { Loader2, Mail, Lock, User, Eye, EyeOff, ArrowRight, CheckCircle, Gift } from 'lucide-react';
-import { authApi, getDashboardPath } from '@/api/auth';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import {
+  Loader2,
+  Mail,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  CheckCircle,
+  Gift,
+  Shield,
+  Truck,
+  Leaf,
+  Store,
+  Bike,
+  ArrowLeft,
+  Sparkles,
+} from 'lucide-react';
+import { authApi, getPostAuthPath } from '@/api/auth';
+import { parseApiError } from '@/api/client';
 import { useAuthStore } from '@/store/useAuthStore';
-import signupBg from '@/assets/signup_bg.png';
+import loginCinematic from '@/assets/login_cinematic.png';
 
-const schema = z.object({
-  firstName: z.string().min(2, 'First name is required'),
-  lastName: z.string().min(2, 'Last name is required'),
-  email: z.string().email('Enter a valid email'),
-  password: z.string().min(8, 'Min. 8 characters'),
-  confirmPassword: z.string(),
-}).refine(d => d.password === d.confirmPassword, {
-  message: 'Passwords do not match',
-  path: ['confirmPassword'],
-});
+const schema = z
+  .object({
+    firstName: z.string().min(2, 'First name is required'),
+    lastName: z.string().min(2, 'Last name is required'),
+    email: z.string().email('Enter a valid email address'),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((d) => d.password === d.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
 type SignupForm = z.infer<typeof schema>;
 
-/* ── floating emoji configs ─────────────────────────── */
-const FLOATS = [
-  { emoji: '🌿', style: { top: '7%',   left: '5%',   fontSize: '2.4rem' }, delay: '0s',    dur: '7s'   },
-  { emoji: '🥥', style: { top: '14%',  right: '7%',  fontSize: '2rem'   }, delay: '1.2s',  dur: '5.5s' },
-  { emoji: '🧄', style: { bottom: '22%', left: '4%', fontSize: '1.8rem'  }, delay: '2.5s',  dur: '6.5s' },
-  { emoji: '🍃', style: { bottom: '8%', right: '7%', fontSize: '2.2rem'  }, delay: '0.8s',  dur: '8s'   },
-  { emoji: '🌱', style: { top: '50%',  left: '3%',   fontSize: '1.6rem'  }, delay: '1.8s',  dur: '7.5s' },
-  { emoji: '🥦', style: { top: '70%',  right: '5%',  fontSize: '1.7rem'  }, delay: '3.2s',  dur: '6s'   },
-];
-
-/* ── password strength ──────────────────────────────── */
-function PasswordStrength({ password }: { password: string }) {
+function PasswordStrengthMeter({ password }: { password: string }) {
   const checks = [
-    { label: '6+ chars',  pass: password.length >= 6 },
-    { label: 'Number',    pass: /\d/.test(password) },
-    { label: 'Letter',    pass: /[a-zA-Z]/.test(password) },
+    { label: '8+ chars', pass: password.length >= 8 },
+    { label: 'Number', pass: /\d/.test(password) },
+    { label: 'Letter', pass: /[a-zA-Z]/.test(password) },
+    { label: 'Symbol', pass: /[^a-zA-Z0-9]/.test(password) },
   ];
-  const score = checks.filter(c => c.pass).length;
-  const barColors = ['rgba(255,255,255,0.08)', 'rgba(239,68,68,0.7)', 'rgba(245,158,11,0.7)', 'rgba(74,222,128,0.85)'];
-  const scoreLabel = ['', 'Weak', 'Fair', 'Strong'];
-  const scoreLabelColor = ['', '#f87171', '#fbbf24', '#4ade80'];
+  const score = checks.filter((c) => c.pass).length;
+  const barColors = ['rgba(255,255,255,0.1)', 'rgba(239,68,68,0.8)', 'rgba(245,158,11,0.8)', 'rgba(82,188,129,0.8)', '#52bc81'];
+  const scoreLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+  const scoreLabelColor = ['', 'text-red-400', 'text-amber-400', 'text-teal-300', 'text-emerald-400'];
 
   if (!password) return null;
+
   return (
-    <div className="mt-2">
-      <div className="flex gap-1 mb-1.5">
-        {[1, 2, 3].map(i => (
-          <div key={i} className="h-1 flex-1 rounded-full transition-all duration-500"
-            style={{ background: i <= score ? barColors[score] : 'rgba(255,255,255,0.08)' }} />
+    <div className="space-y-1 pt-0.5">
+      <div className="flex gap-1">
+        {[1, 2, 3, 4].map((i) => (
+          <div
+            key={i}
+            className="h-1 flex-1 rounded-full transition-all duration-300"
+            style={{ background: i <= score ? barColors[score] : 'rgba(255,255,255,0.1)' }}
+          />
         ))}
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex gap-3">
-          {checks.map(c => (
-            <span key={c.label}
-              className="flex items-center gap-1 text-[10px] transition-colors"
-              style={{ color: c.pass ? '#4ade80' : 'rgba(255,255,255,0.3)' }}>
+      <div className="flex items-center justify-between text-[10px]">
+        <div className="flex flex-wrap gap-1.5 text-white/50">
+          {checks.map((c) => (
+            <span key={c.label} className={`inline-flex items-center gap-0.5 ${c.pass ? 'text-emerald-400 font-semibold' : ''}`}>
               <CheckCircle size={9} /> {c.label}
             </span>
           ))}
         </div>
-        <span className="text-[10px] font-bold transition-colors" style={{ color: scoreLabelColor[score] }}>
-          {scoreLabel[score]}
-        </span>
+        <span className={`font-bold ${scoreLabelColor[score]}`}>{scoreLabel[score]}</span>
       </div>
     </div>
   );
 }
 
-/* ── reusable glass input ───────────────────────────── */
-function GlassInput({
-  icon: Icon,
-  error,
-  inputRef,
-  suffix,
-  ...props
-}: {
-  icon: React.ElementType;
-  error?: string;
-  inputRef?: React.Ref<HTMLInputElement>;
-  suffix?: React.ReactNode;
-} & React.InputHTMLAttributes<HTMLInputElement>) {
-  const [focused, setFocused] = useState(false);
-  return (
-    <div>
-      <div className="relative">
-        <Icon size={14}
-          className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none transition-colors z-10"
-          style={{ color: focused ? '#4ade80' : 'rgba(255,255,255,0.35)' }}
-        />
-        <input
-          ref={inputRef}
-          {...props}
-          onFocus={e => { setFocused(true); props.onFocus?.(e); }}
-          onBlur={e => { setFocused(false); props.onBlur?.(e); }}
-          className="w-full pl-10 h-11 rounded-xl text-sm outline-none text-white placeholder:text-white/30 transition-all pr-4"
-          style={{
-            background: focused ? 'rgba(255,255,255,0.13)' : 'rgba(255,255,255,0.08)',
-            border: error
-              ? '1.5px solid rgba(239,68,68,0.65)'
-              : focused
-              ? '1.5px solid rgba(74,222,128,0.6)'
-              : '1.5px solid rgba(255,255,255,0.13)',
-          }}
-        />
-        {suffix && <div className="absolute right-3 top-1/2 -translate-y-1/2">{suffix}</div>}
-      </div>
-      {error && (
-        <p className="text-red-400 text-[10px] mt-1 flex items-center gap-1">
-          <span>⚠</span> {error}
-        </p>
-      )}
-    </div>
-  );
-}
+const FLOATING_EMOJIS = [
+  { emoji: '🌿', style: { top: '10%', left: '4%', fontSize: '2.3rem' }, delay: '0s', dur: '7s' },
+  { emoji: '🥥', style: { top: '18%', right: '5%', fontSize: '2rem' }, delay: '1.4s', dur: '5.5s' },
+  { emoji: '🧄', style: { bottom: '22%', left: '3%', fontSize: '1.8rem' }, delay: '2.5s', dur: '6.5s' },
+  { emoji: '🍃', style: { bottom: '12%', right: '8%', fontSize: '2.2rem' }, delay: '0.8s', dur: '8s' },
+];
 
-/* ═══════════════════════════════════════════════════════
-   SignupPage
-═══════════════════════════════════════════════════════ */
 export function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [step, setStep] = useState<1 | 2>(1);
+  const location = useLocation();
   const navigate = useNavigate();
   const { setUser } = useAuthStore();
+  const signupState = location.state as {
+    from?: { pathname: string; search?: string; hash?: string };
+    message?: string;
+  } | null;
 
-  const { register, handleSubmit, watch, trigger, formState: { errors }, setError } = useForm<SignupForm>({
+  const {
+    register,
+    handleSubmit,
+    watch,
+    trigger,
+    formState: { errors },
+    setError,
+  } = useForm<SignupForm>({
     resolver: zodResolver(schema),
     mode: 'onChange',
   });
@@ -145,9 +124,13 @@ export function SignupPage() {
       }),
     onSuccess: ({ user }) => {
       setUser(user);
-      navigate(getDashboardPath(user.role));
+      navigate(getPostAuthPath(user.role, signupState?.from), { replace: true });
     },
-    onError: () => setError('email', { message: 'Account already exists with this email' }),
+    onError: (error) => {
+      const apiError = parseApiError(error);
+      const message = apiError.fieldErrors?.email ?? apiError.message;
+      setError('email', { message });
+    },
   });
 
   const handleNext = async () => {
@@ -156,245 +139,488 @@ export function SignupPage() {
   };
 
   return (
-    <div className="h-screen w-full relative overflow-hidden flex items-center justify-center">
+    <div className="h-screen max-h-screen w-full text-white font-sans selection:bg-emerald-500 selection:text-slate-950 flex flex-col justify-between relative overflow-hidden bg-slate-950">
+      {/* ── Background Cinematic Image Layer with Ken Burns Zoom ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <img
+          src={loginCinematic}
+          alt=""
+          className="w-full h-full object-cover scale-108 opacity-25"
+          style={{ animation: 'kenBurnsReverse 24s ease-in-out infinite alternate' }}
+        />
+        {/* Rich dark forest + warm amber gradient overlay */}
+        <div
+          className="absolute inset-0"
+          style={{
+            background:
+              'linear-gradient(135deg, rgba(7, 28, 17, 0.85) 0%, rgba(10, 46, 26, 0.78) 45%, rgba(20, 40, 20, 0.9) 100%)',
+          }}
+        />
+      </div>
 
-      {/* ── Full-screen background ─────────────────────── */}
-      <img
-        src={signupBg}
-        alt=""
-        className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: 'scale(1.08)', animation: 'kenBurns 24s ease-in-out infinite alternate' }}
+      {/* ── Background Ambient Light Orbs ── */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        <div
+          className="absolute -top-32 -left-32 w-[650px] h-[650px] rounded-full opacity-30"
+          style={{ background: 'radial-gradient(circle, #52bc81 0%, transparent 70%)', animation: 'pulse 8s ease-in-out infinite' }}
+        />
+        <div
+          className="absolute -bottom-40 -right-20 w-[550px] h-[550px] rounded-full opacity-25"
+          style={{ background: 'radial-gradient(circle, #f97316 0%, transparent 70%)', animation: 'pulse 6s ease-in-out infinite 2s' }}
+        />
+      </div>
+
+      {/* ── Decorative Dashed Ring ── */}
+      <div
+        className="absolute w-[500px] h-[500px] border border-dashed rounded-full animate-spin-slow pointer-events-none top-1/2 left-1/4 -translate-y-1/2 -translate-x-1/2 hidden xl:block"
+        style={{ borderColor: 'rgba(82,188,129,0.2)' }}
       />
-      {/* Overlay — warm golden-dark toned to complement the market photo */}
-      <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-primary-900/60 to-amber-950/70" />
-      {/* Vignette */}
-      <div className="absolute inset-0" style={{ boxShadow: 'inset 0 0 130px rgba(0,0,0,0.65)' }} />
 
-      {/* Floating emojis */}
-      {FLOATS.map((f, i) => (
-        <div key={i} className="absolute pointer-events-none select-none"
-          style={{ ...f.style, animation: `floatEmoji ${f.dur} ease-in-out infinite`, animationDelay: f.delay, filter: 'drop-shadow(0 3px 10px rgba(0,0,0,0.55))' }}>
+      {/* ── Floating Graphic Card: Welcome Gift Tag ── */}
+      <div
+        className="absolute top-24 left-12 z-10 hidden xl:flex items-center gap-3 px-4 py-3 rounded-2xl animate-float-slow backdrop-blur-md"
+        style={{
+          background: 'rgba(255,255,255,0.12)',
+          border: '1px solid rgba(255,255,255,0.18)',
+          boxShadow: '0 12px 32px rgba(0,0,0,0.35)',
+        }}
+      >
+        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'rgba(249,115,22,0.25)' }}>
+          <Gift size={18} className="text-amber-400" />
+        </div>
+        <div>
+          <p className="text-[10px] font-medium text-white/60">New Member Reward</p>
+          <p className="text-xs font-bold text-amber-300">LKR 200 Off First Order</p>
+        </div>
+      </div>
+
+      {/* ── Floating Emojis ── */}
+      {FLOATING_EMOJIS.map((f, i) => (
+        <div
+          key={i}
+          className="absolute pointer-events-none select-none z-10"
+          style={{
+            ...f.style,
+            animation: `floatEmoji ${f.dur} ease-in-out infinite`,
+            animationDelay: f.delay,
+            filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+          }}
+        >
           {f.emoji}
         </div>
       ))}
 
-      {/* ── Top bar ────────────────────────────────────── */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-8 py-5">
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="w-9 h-9 bg-white/15 backdrop-blur-md rounded-xl flex items-center justify-center border border-white/25 group-hover:bg-white/25 transition-colors">
-            <span className="text-white font-black text-base">F</span>
+      {/* ── Top Header Navigation Bar (Home Page Style) ── */}
+      <header className="relative z-20 mx-auto max-w-7xl w-full px-6 py-3.5 flex items-center justify-between shrink-0">
+        <Link to="/" className="flex items-center gap-2.5 shrink-0 group">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center transition-transform duration-300 group-hover:scale-105"
+            style={{
+              background: 'linear-gradient(135deg, #1a7a4a 0%, #52bc81 100%)',
+              boxShadow: '0 4px 14px rgba(82,188,129,0.35)',
+            }}
+          >
+            <Leaf size={17} className="text-white" strokeWidth={2.5} />
           </div>
-          <span className="font-black text-xl text-white tracking-tight drop-shadow-lg">
-            Fresh<span className="text-primary-300">ora</span>
+          <span className="font-extrabold text-xl tracking-tight text-white">
+            Fresh<span style={{ color: '#74c898' }}>ora</span>
           </span>
         </Link>
-        <Link to="/login"
-          className="flex items-center gap-1.5 px-4 py-2 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/25 rounded-full text-white text-sm font-medium transition-all">
-          Sign in <ArrowRight size={13} />
+
+        <Link
+          to="/login"
+          state={signupState}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-bold transition-all border border-white/15 hover:bg-white/15"
+          style={{ background: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(12px)', color: '#fff' }}
+        >
+          <span className="text-white/70">Already registered?</span>
+          <span style={{ color: '#74c898' }} className="font-extrabold">Sign In</span>
+          <ArrowRight size={13} style={{ color: '#74c898' }} />
         </Link>
-      </div>
+      </header>
 
-      {/* ── Glass card ─────────────────────────────────── */}
-      <div className="relative z-10 w-full max-w-[440px] mx-4">
-        <div className="rounded-3xl overflow-hidden"
-          style={{
-            background: 'rgba(255,255,255,0.07)',
-            backdropFilter: 'blur(36px)',
-            border: '1px solid rgba(255,255,255,0.16)',
-            boxShadow: '0 32px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.12)',
-          }}>
+      {/* ── Main Split Layout Container — Single Viewport Fit ── */}
+      <main className="relative z-20 mx-auto max-w-7xl w-full px-4 sm:px-6 my-auto grid lg:grid-cols-12 gap-8 items-center shrink-0">
+        {/* Left Side: Member Benefits & Welcome Gift Showcase */}
+        <div className="lg:col-span-6 space-y-4 hidden lg:block pr-2">
+          <div
+            className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold border border-white/10 backdrop-blur-sm"
+            style={{ background: 'rgba(255,255,255,0.08)', color: '#74c898' }}
+          >
+            <Gift size={14} className="text-amber-400" /> Exclusive Welcome Gift Included
+          </div>
 
-          {/* ── Card top: progress + gift ─────────────── */}
-          <div className="px-8 pt-7 pb-5 border-b border-white/10">
-            {/* Gift badge */}
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
-                style={{ background: 'rgba(74,222,128,0.12)', border: '1px solid rgba(74,222,128,0.22)' }}>
-                <Gift size={13} className="text-green-400" />
-                <span className="text-green-300 text-xs font-bold">LKR 200 off your first order</span>
+          <h1 className="font-extrabold leading-[1.08] text-3xl xl:text-4xl tracking-tight">
+            Join Freshora &amp; Claim <br />
+            <span
+              className="block"
+              style={{
+                background: 'linear-gradient(90deg, #52bc81 0%, #a8e6c3 50%, #f97316 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}
+            >
+              LKR 200 Off First Order.
+            </span>
+          </h1>
+
+          <p className="text-xs leading-relaxed text-white/70 max-w-md">
+            Unlock instant access to 50+ verified local supermarkets, organic farms, and artisan produce stores across Colombo with 30-minute delivery.
+          </p>
+
+          <div className="space-y-2 pt-1">
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl border border-white/10 backdrop-blur-md" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <Truck size={18} style={{ color: '#74c898' }} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">30-Minute Fast Delivery</p>
+                <p className="text-[10px] text-white/50">Live GPS rider tracking on every single order</p>
               </div>
-              {/* Step indicator */}
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1">
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
-                    style={{ background: 'rgba(74,222,128,0.8)', color: '#fff' }}>
-                    {step === 2 ? <CheckCircle size={12} /> : '1'}
-                  </div>
-                  <div className="w-8 h-px" style={{ background: step === 2 ? 'rgba(74,222,128,0.6)' : 'rgba(255,255,255,0.15)' }} />
-                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
-                    style={{
-                      background: step === 2 ? 'rgba(74,222,128,0.8)' : 'rgba(255,255,255,0.12)',
-                      color: step === 2 ? '#fff' : 'rgba(255,255,255,0.4)',
-                      border: step === 1 ? '1px solid rgba(255,255,255,0.2)' : 'none',
-                    }}>2</div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl border border-white/10 backdrop-blur-md" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <Sparkles size={18} style={{ color: '#74c898' }} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">Freshness Guaranteed</p>
+                <p className="text-[10px] text-white/50">Directly sourced produce with hassle-free quality assurance</p>
+              </div>
+            </div>
+
+            <div className="flex items-start gap-2.5 p-3 rounded-2xl border border-white/10 backdrop-blur-md" style={{ background: 'rgba(255,255,255,0.06)' }}>
+              <Shield size={18} style={{ color: '#74c898' }} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs font-bold text-white">Secure Flexible Payments</p>
+                <p className="text-[10px] text-white/50">Credit card or cash on delivery options available</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Right Side: Multi-Step Registration Card */}
+        <div className="lg:col-span-6 max-w-md w-full mx-auto">
+          <div
+            className="rounded-3xl p-5 sm:p-6 space-y-4 border border-white/15 shadow-2xl"
+            style={{
+              background: 'rgba(255,255,255,0.08)',
+              backdropFilter: 'blur(24px)',
+              WebkitBackdropFilter: 'blur(24px)',
+              boxShadow: '0 24px 60px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.15)',
+            }}
+          >
+            {/* Step Progress Indicator Header */}
+            <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider" style={{ color: '#74c898' }}>
+                  Step {step} of 2
+                </span>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight mt-0.5">
+                  {step === 1 ? 'Create Account' : 'Security Password'}
+                </h2>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    step >= 1 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' : 'bg-white/10 text-white/40'
+                  }`}
+                >
+                  {step > 1 ? <CheckCircle size={14} /> : '1'}
+                </div>
+                <div className={`w-5 h-0.5 rounded-full ${step === 2 ? 'bg-emerald-500' : 'bg-white/10'}`} />
+                <div
+                  className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
+                    step === 2 ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20' : 'bg-white/10 text-white/40'
+                  }`}
+                >
+                  2
                 </div>
               </div>
             </div>
-            <h1 className="text-2xl font-extrabold text-white mb-0.5">
-              {step === 1 ? 'Create account' : 'Set your password'}
-            </h1>
-            <p className="text-white/50 text-xs">
-              {step === 1 ? 'Step 1 of 2 — Your details' : 'Step 2 of 2 — Secure your account'}
-            </p>
-          </div>
 
-          {/* ── Form ─────────────────────────────────── */}
-          <div className="px-8 py-6">
-            <form onSubmit={handleSubmit(d => signup(d))}>
-
-              {/* ── STEP 1 ── */}
-              <div className={`space-y-4 transition-all duration-400 ${step === 1 ? 'block' : 'hidden'}`}>
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">First Name</label>
-                  <GlassInput icon={User} id="signup-first-name" placeholder="Kamal"
-                    error={errors.firstName?.message} {...register('firstName')} />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Last Name</label>
-                  <GlassInput icon={User} id="signup-last-name" placeholder="Perera"
-                    error={errors.lastName?.message} {...register('lastName')} />
-                </div>
-
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Email Address</label>
-                  <GlassInput icon={Mail} id="signup-email" type="email" placeholder="kamal@example.com"
-                    error={errors.email?.message} {...register('email')} />
-                </div>
-
-                <button type="button" onClick={handleNext}
-                  className="w-full py-3.5 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all duration-200 mt-2"
-                  style={{
-                    background: 'linear-gradient(135deg, #1a7a4a, #22c55e)',
-                    boxShadow: '0 8px 28px rgba(26,122,74,0.4)',
-                    color: 'white',
-                  }}
-                  onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-2px)'}
-                  onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                  Continue <ArrowRight size={17} />
-                </button>
+            {signupState?.message && (
+              <div className="p-2.5 rounded-2xl border border-amber-300/30 bg-amber-400/10 text-amber-100 text-xs font-semibold flex items-center gap-2">
+                <CheckCircle size={14} className="text-amber-300 shrink-0" />
+                <span>{signupState.message}</span>
               </div>
+            )}
 
-              {/* ── STEP 2 ── */}
-              <div className={`space-y-4 transition-all duration-400 ${step === 2 ? 'block' : 'hidden'}`}>
-                {/* Summary of step 1 */}
-                <div className="flex items-center gap-3 px-4 py-3 rounded-2xl"
-                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <div className="w-9 h-9 bg-primary-500 rounded-full flex items-center justify-center font-black text-white text-base shrink-0">
-                    {nameValue.charAt(0).toUpperCase() || '?'}
+            <form onSubmit={handleSubmit((d) => signup(d))} className="space-y-3">
+              {/* STEP 1: Personal Information */}
+              {step === 1 && (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {/* First Name */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider">First Name</label>
+                      <div className="relative">
+                        <User size={15} className="absolute left-3 top-2.5 text-white/40" />
+                        <input
+                          {...register('firstName')}
+                          id="signup-first-name"
+                          type="text"
+                          placeholder="Kamal"
+                          className="w-full rounded-2xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition"
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: errors.firstName ? '1.5px solid rgba(239,68,68,0.7)' : '1.5px solid rgba(255,255,255,0.15)',
+                          }}
+                          onFocus={(e) => (e.currentTarget.style.border = '1.5px solid rgba(82,188,129,0.7)')}
+                          onBlur={(e) =>
+                            (e.currentTarget.style.border = errors.firstName
+                              ? '1.5px solid rgba(239,68,68,0.7)'
+                              : '1.5px solid rgba(255,255,255,0.15)')
+                          }
+                        />
+                      </div>
+                      {errors.firstName && <p className="text-red-400 text-[10px] font-semibold">{errors.firstName.message}</p>}
+                    </div>
+
+                    {/* Last Name */}
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Last Name</label>
+                      <div className="relative">
+                        <User size={15} className="absolute left-3 top-2.5 text-white/40" />
+                        <input
+                          {...register('lastName')}
+                          id="signup-last-name"
+                          type="text"
+                          placeholder="Perera"
+                          className="w-full rounded-2xl pl-9 pr-3 py-2 text-xs text-white placeholder:text-white/30 outline-none transition"
+                          style={{
+                            background: 'rgba(255,255,255,0.1)',
+                            border: errors.lastName ? '1.5px solid rgba(239,68,68,0.7)' : '1.5px solid rgba(255,255,255,0.15)',
+                          }}
+                          onFocus={(e) => (e.currentTarget.style.border = '1.5px solid rgba(82,188,129,0.7)')}
+                          onBlur={(e) =>
+                            (e.currentTarget.style.border = errors.lastName
+                              ? '1.5px solid rgba(239,68,68,0.7)'
+                              : '1.5px solid rgba(255,255,255,0.15)')
+                          }
+                        />
+                      </div>
+                      {errors.lastName && <p className="text-red-400 text-[10px] font-semibold">{errors.lastName.message}</p>}
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-white font-semibold text-sm truncate">{nameValue}</p>
-                    <p className="text-white/45 text-xs truncate">{emailValue}</p>
+
+                  {/* Email */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Email Address</label>
+                    <div className="relative">
+                      <Mail size={15} className="absolute left-3 top-2.5 text-white/40" />
+                      <input
+                        {...register('email')}
+                        id="signup-email"
+                        type="email"
+                        placeholder="kamal@example.com"
+                        className="w-full rounded-2xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-white/30 outline-none transition"
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: errors.email ? '1.5px solid rgba(239,68,68,0.7)' : '1.5px solid rgba(255,255,255,0.15)',
+                        }}
+                        onFocus={(e) => (e.currentTarget.style.border = '1.5px solid rgba(82,188,129,0.7)')}
+                        onBlur={(e) =>
+                          (e.currentTarget.style.border = errors.email
+                            ? '1.5px solid rgba(239,68,68,0.7)'
+                            : '1.5px solid rgba(255,255,255,0.15)')
+                        }
+                      />
+                    </div>
+                    {errors.email && <p className="text-red-400 text-[10px] font-semibold">{errors.email.message}</p>}
                   </div>
-                  <button type="button" onClick={() => setStep(1)}
-                    className="ml-auto text-primary-400 text-xs font-bold hover:text-primary-300 transition-colors shrink-0">
-                    Edit
+
+                  {/* Step 1 Next Button */}
+                  <button
+                    type="button"
+                    onClick={handleNext}
+                    className="w-full rounded-2xl text-white font-bold text-xs py-2.5 transition duration-300 shadow-lg flex items-center justify-center gap-2 cursor-pointer mt-1 hover:scale-[1.02] active:scale-[0.98]"
+                    style={{
+                      background: 'linear-gradient(135deg, #1a7a4a 0%, #157040 100%)',
+                      boxShadow: '0 8px 24px rgba(26,122,74,0.45)',
+                    }}
+                  >
+                    <span>Continue to Security</span>
+                    <ArrowRight size={15} />
                   </button>
                 </div>
+              )}
 
-                {/* Password */}
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Password</label>
-                  <div className="relative">
-                    <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: 'rgba(255,255,255,0.35)' }} />
-                    <input {...register('password')} id="signup-password" type={showPassword ? 'text' : 'password'}
-                      placeholder="Min. 6 characters"
-                      className="w-full pl-10 pr-12 h-11 rounded-xl text-sm outline-none text-white placeholder:text-white/30 transition-all"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: errors.password ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)' }}
-                      onFocus={e => e.currentTarget.style.border = '1.5px solid rgba(74,222,128,0.6)'}
-                      onBlur={e => e.currentTarget.style.border = errors.password ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)'}
-                    />
-                    <button type="button" onClick={() => setShowPassword(p => !p)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors"
-                      style={{ color: 'rgba(255,255,255,0.35)' }}>
-                      {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+              {/* STEP 2: Security Password */}
+              {step === 2 && (
+                <div className="space-y-3">
+                  {/* Step 1 Summary Capsule */}
+                  <div
+                    className="p-2.5 rounded-2xl border border-white/10 flex items-center justify-between gap-2"
+                    style={{ background: 'rgba(255,255,255,0.06)' }}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div
+                        className="w-7 h-7 rounded-full font-bold flex items-center justify-center text-[11px] shrink-0 text-white"
+                        style={{ background: 'linear-gradient(135deg, #1a7a4a, #52bc81)' }}
+                      >
+                        {nameValue[0]?.toUpperCase() || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-bold text-xs text-white truncate">{nameValue}</p>
+                        <p className="text-[10px] text-white/50 truncate">{emailValue}</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="text-[11px] font-bold px-2 py-0.5 rounded-xl border border-white/15 hover:bg-white/10 transition"
+                      style={{ color: '#74c898' }}
+                    >
+                      Edit
                     </button>
                   </div>
-                  {errors.password && <p className="text-red-400 text-[10px] mt-1">⚠ {errors.password.message}</p>}
-                  <PasswordStrength password={passwordValue} />
-                </div>
 
-                {/* Confirm password */}
-                <div>
-                  <label className="text-[10px] font-bold text-white/45 mb-1.5 block uppercase tracking-widest">Confirm Password</label>
-                  <div className="relative">
-                    <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                      style={{ color: 'rgba(255,255,255,0.35)' }} />
-                    <input {...register('confirmPassword')} id="signup-confirm" type={showPassword ? 'text' : 'password'}
-                      placeholder="Repeat password"
-                      className="w-full pl-10 pr-4 h-11 rounded-xl text-sm outline-none text-white placeholder:text-white/30 transition-all"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: errors.confirmPassword ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)' }}
-                      onFocus={e => e.currentTarget.style.border = '1.5px solid rgba(74,222,128,0.6)'}
-                      onBlur={e => e.currentTarget.style.border = errors.confirmPassword ? '1.5px solid rgba(239,68,68,0.65)' : '1.5px solid rgba(255,255,255,0.13)'}
-                    />
+                  {/* Password */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Password</label>
+                    <div className="relative">
+                      <Lock size={15} className="absolute left-3 top-2.5 text-white/40" />
+                      <input
+                        {...register('password')}
+                        id="signup-password"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Min 8 characters"
+                        className="w-full rounded-2xl pl-9 pr-9 py-2 text-xs text-white placeholder:text-white/30 outline-none transition"
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: errors.password ? '1.5px solid rgba(239,68,68,0.7)' : '1.5px solid rgba(255,255,255,0.15)',
+                        }}
+                        onFocus={(e) => (e.currentTarget.style.border = '1.5px solid rgba(82,188,129,0.7)')}
+                        onBlur={(e) =>
+                          (e.currentTarget.style.border = errors.password
+                            ? '1.5px solid rgba(239,68,68,0.7)'
+                            : '1.5px solid rgba(255,255,255,0.15)')
+                        }
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-white/40 hover:text-white/70 transition"
+                        aria-label="Toggle Password Visibility"
+                      >
+                        {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      </button>
+                    </div>
+                    {errors.password && <p className="text-red-400 text-[10px] font-semibold">{errors.password.message}</p>}
+                    <PasswordStrengthMeter password={passwordValue} />
                   </div>
-                  {errors.confirmPassword && <p className="text-red-400 text-[10px] mt-1">⚠ {errors.confirmPassword.message}</p>}
+
+                  {/* Confirm Password */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Confirm Password</label>
+                    <div className="relative">
+                      <Lock size={15} className="absolute left-3 top-2.5 text-white/40" />
+                      <input
+                        {...register('confirmPassword')}
+                        id="signup-confirm"
+                        type={showPassword ? 'text' : 'password'}
+                        placeholder="Repeat password"
+                        className="w-full rounded-2xl pl-9 pr-4 py-2 text-xs text-white placeholder:text-white/30 outline-none transition"
+                        style={{
+                          background: 'rgba(255,255,255,0.1)',
+                          border: errors.confirmPassword ? '1.5px solid rgba(239,68,68,0.7)' : '1.5px solid rgba(255,255,255,0.15)',
+                        }}
+                        onFocus={(e) => (e.currentTarget.style.border = '1.5px solid rgba(82,188,129,0.7)')}
+                        onBlur={(e) =>
+                          (e.currentTarget.style.border = errors.confirmPassword
+                            ? '1.5px solid rgba(239,68,68,0.7)'
+                            : '1.5px solid rgba(255,255,255,0.15)')
+                        }
+                      />
+                    </div>
+                    {errors.confirmPassword && (
+                      <p className="text-red-400 text-[10px] font-semibold">{errors.confirmPassword.message}</p>
+                    )}
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      className="px-3.5 py-2.5 rounded-2xl border border-white/15 text-white/70 text-xs font-bold hover:bg-white/10 transition flex items-center gap-1"
+                    >
+                      <ArrowLeft size={14} /> Back
+                    </button>
+
+                    <button
+                      id="signup-submit"
+                      type="submit"
+                      disabled={isPending}
+                      className="flex-1 rounded-2xl text-white font-bold text-xs py-2.5 transition duration-300 disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer shadow-lg hover:scale-[1.02] active:scale-[0.98]"
+                      style={{
+                        background: 'linear-gradient(135deg, #1a7a4a 0%, #157040 100%)',
+                        boxShadow: '0 8px 24px rgba(26,122,74,0.45)',
+                      }}
+                    >
+                      {isPending ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" /> Creating Account…
+                        </>
+                      ) : (
+                        <>
+                          Complete Registration <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
-
-                {/* Terms */}
-                <p className="text-[10px] text-white/25 leading-relaxed">
-                  By creating an account you agree to our{' '}
-                  <Link to="/terms" className="text-primary-300 hover:underline">Terms</Link> &{' '}
-                  <Link to="/privacy" className="text-primary-300 hover:underline">Privacy Policy</Link>.
-                </p>
-
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => setStep(1)}
-                    className="h-12 px-5 rounded-2xl font-semibold text-sm transition-all"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.7)' }}
-                    onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.14)'}
-                    onMouseLeave={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}>
-                    ← Back
-                  </button>
-                  <button id="signup-submit" type="submit" disabled={isPending}
-                    className="flex-1 h-12 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-60"
-                    style={{
-                      background: 'linear-gradient(135deg, #1a7a4a, #22c55e)',
-                      boxShadow: '0 8px 28px rgba(26,122,74,0.4)',
-                      color: 'white',
-                    }}
-                    onMouseEnter={e => !isPending && (e.currentTarget.style.transform = 'translateY(-2px)')}
-                    onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}>
-                    {isPending
-                      ? <><Loader2 size={16} className="animate-spin" /> Creating...</>
-                      : <>Create Account <ArrowRight size={17} /></>
-                    }
-                  </button>
-                </div>
-              </div>
-
+              )}
             </form>
+
+            {/* Partner & Operations Portals Section (Home Page Partner Card Style) */}
+            <div className="pt-2 border-t border-white/10 space-y-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-white/50">Partner & Operations Portals</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <Link
+                  to="/join/store"
+                  className="p-2.5 rounded-2xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center gap-2 group"
+                >
+                  <Store size={14} style={{ color: '#74c898' }} className="shrink-0 group-hover:scale-110 transition-transform" />
+                  <div className="truncate">
+                    <p className="font-bold text-[11px] truncate">Store Partner</p>
+                    <p className="text-[9px] text-white/50 truncate">Join as store</p>
+                  </div>
+                </Link>
+
+                <Link
+                  to="/join/driver"
+                  className="p-2.5 rounded-2xl border border-white/15 bg-white/10 hover:bg-white/15 text-white transition flex items-center gap-2 group"
+                >
+                  <Bike size={14} className="text-amber-300 shrink-0 group-hover:scale-110 transition-transform" />
+                  <div className="truncate">
+                    <p className="font-bold text-[11px] truncate">Delivery Driver</p>
+                    <p className="text-[9px] text-white/50 truncate">Join as rider</p>
+                  </div>
+                </Link>
+              </div>
+            </div>
+
+            <p className="text-center text-[11px] text-white/60 pt-0.5">
+              Already have an account?{' '}
+              <Link to="/login" state={signupState} className="font-bold hover:underline transition" style={{ color: '#74c898' }}>
+                Sign in →
+              </Link>
+            </p>
           </div>
         </div>
+      </main>
 
-        {/* Below card */}
-        <p className="text-center text-white/40 text-sm mt-5">
-          Already have an account?{' '}
-          <Link to="/login" className="text-primary-300 font-bold hover:text-primary-200 transition-colors">
-            Sign in →
-          </Link>
-        </p>
-      </div>
-
-      {/* ── Bottom stats ── same as login ─────────────── */}
-      <div className="absolute bottom-0 left-0 right-0 z-10">
-        <div className="flex justify-center gap-10 py-4 px-6"
-          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-          {[
-            { val: 'Free',    label: 'To join' },
-            { val: 'LKR 200', label: 'Welcome gift' },
-            { val: '30 min',  label: 'First delivery' },
-            { val: '4.9 ★',   label: 'App rating' },
-          ].map(s => (
-            <div key={s.label} className="text-center hidden sm:block">
-              <p className="text-white font-extrabold text-base leading-none">{s.val}</p>
-              <p className="text-white/40 text-[10px] mt-0.5 font-medium">{s.label}</p>
-            </div>
-          ))}
+      {/* ── Footer Stats Bar (Home Page Style) ── */}
+      <footer className="relative z-20 border-t border-white/10 py-2.5 px-6 shrink-0" style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(12px)' }}>
+        <div className="mx-auto max-w-7xl flex flex-wrap items-center justify-center sm:justify-between gap-3 text-xs text-white/60">
+          <p className="font-medium text-[11px]">© {new Date().getFullYear()} Freshora Inc. All rights reserved.</p>
+          <div className="flex items-center gap-5 text-[11px] font-semibold">
+            <span>🎁 LKR 200 Gift</span>
+            <span>⚡ Instant Account Setup</span>
+            <span>🔒 Encrypted SSL Security</span>
+          </div>
         </div>
-      </div>
+      </footer>
     </div>
   );
 }

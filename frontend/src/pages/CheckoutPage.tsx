@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { useMutation } from '@tanstack/react-query';
 import { MapPin, CreditCard, Banknote, ChevronRight, Loader2 } from 'lucide-react';
 import { ordersApi } from '@/api/orders';
+import { parseApiError } from '@/api/client';
 import { useActiveStoreStore } from '@/store/useActiveStoreStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useLocationStore } from '@/store/useLocationStore';
@@ -42,7 +43,7 @@ export function CheckoutPage() {
 
   const paymentMethod = watch('paymentMethod');
 
-  const { mutate: placeOrder, isPending } = useMutation({
+  const { mutate: placeOrder, isPending, error } = useMutation({
     mutationFn: (data: CheckoutForm) =>
       ordersApi.createOrder({
         storeId: storeId!,
@@ -62,11 +63,6 @@ export function CheckoutPage() {
     onSuccess: (order) => {
       clearCart();
       navigate(`/order-confirmation/${order.id}`);
-    },
-    onError: () => {
-      // Mock success for development
-      clearCart();
-      navigate('/order-confirmation/ORD-' + Date.now());
     },
   });
 
@@ -214,6 +210,12 @@ export function CheckoutPage() {
                     <>Place Order · LKR {total.toLocaleString()} <ChevronRight size={18} /></>
                   )}
                 </button>
+
+                {error && (
+                  <p className="text-sm text-red-600 mt-3" role="alert">
+                    {parseApiError(error).message}
+                  </p>
+                )}
 
                 <p className="text-xs text-gray-400 text-center mt-3">
                   By placing your order, you agree to our Terms & Conditions

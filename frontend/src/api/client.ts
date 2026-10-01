@@ -1,7 +1,67 @@
 import axios from 'axios';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+
+export interface ApiErrorPayload {
+  status?: number;
+  error?: string;
+  message?: string;
+  fieldErrors?: Record<string, string>;
+}
+
+export const parseApiError = (error: unknown): { status?: number; message: string; fieldErrors?: Record<string, string> } => {
+  const axiosError = error as {
+    response?: { status?: number; data?: ApiErrorPayload };
+    code?: string;
+  };
+
+  const status = axiosError.response?.status;
+  const payload = axiosError.response?.data;
+
+  if (payload?.message) {
+    return {
+      status,
+      message: payload.message,
+      fieldErrors: payload.fieldErrors,
+    };
+  }
+
+  if (payload?.error) {
+    return {
+      status,
+      message: payload.error,
+      fieldErrors: payload.fieldErrors,
+    };
+  }
+
+  if (status === 401) {
+    return {
+      status: 401,
+      message: 'You must be logged in to perform this action. Please log in and try again.',
+    };
+  }
+
+  if (status === 403) {
+    return {
+      status: 403,
+      message: 'Access denied or request token expired. Please refresh the page and try again.',
+    };
+  }
+
+  if (axiosError.code === 'ERR_NETWORK' || axiosError.code === 'ECONNABORTED') {
+    return {
+      status,
+      message: "We couldn't connect to Freshora. Please check your connection and try again.",
+    };
+  }
+
+  return {
+    status,
+    message: 'Something went wrong. Please try again.',
+  };
+};
 
 const getCsrfToken = () => {
   if (typeof document === 'undefined') return '';
@@ -90,6 +150,7 @@ apiClient.interceptors.response.use(
         processQueue(refreshError);
 
         // Refresh failed — clear persisted auth state and go to login
+        useCartStore.getState().clearCart();
         useAuthStore.getState().logout();
         window.location.href = '/login';
         return Promise.reject(refreshError);

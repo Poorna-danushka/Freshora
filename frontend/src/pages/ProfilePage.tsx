@@ -1,199 +1,245 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/useAuthStore';
-import { 
-  Package, MapPin, CreditCard, Bell, Settings, 
-  HelpCircle, FileText, LogOut, ChevronRight, 
-  Edit2, Lock 
-} from 'lucide-react';
+import { useCartStore } from '@/store/useCartStore';
+import { authApi } from '@/api/auth';
+import { usersApi, type AddressRecord } from '@/api/users';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { MapPin, Lock, Save, Plus, CheckCircle2 } from 'lucide-react';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const queryClient = useQueryClient();
+  const { user, setUser, logout } = useAuthStore();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [profileForm, setProfileForm] = useState({ firstName: user?.firstName ?? '', lastName: user?.lastName ?? '', phone: user?.phone ?? '' });
+  const [addressForm, setAddressForm] = useState({ label: '', recipientName: '', phone: '', addressLine1: '', addressLine2: '', city: '', district: '', postalCode: '', isDefault: true });
+  const [passwordForm, setPasswordForm] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [profileMessage, setProfileMessage] = useState('');
+  const [addressMessage, setAddressMessage] = useState('');
+  const [passwordMessage, setPasswordMessage] = useState('');
+
+  const { data: profile, isLoading: profileLoading } = useQuery({
+    queryKey: ['profile'],
+    queryFn: usersApi.getProfile,
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const { data: addresses = [], isLoading: addressesLoading } = useQuery({
+    queryKey: ['profile-addresses'],
+    queryFn: usersApi.getAddresses,
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const defaultAddress = useMemo(() => addresses.find((address) => address.isDefault) ?? addresses[0] ?? null, [addresses]);
+
+  const profileMutation = useMutation({
+    mutationFn: usersApi.updateProfile,
+    onSuccess: (updatedUser) => {
+      setUser(updatedUser);
+      setProfileMessage('Profile updated successfully.');
+      queryClient.invalidateQueries({ queryKey: ['profile'] });
+    },
+    onError: () => setProfileMessage('Unable to update your profile right now.'),
+  });
+
+  const addressMutation = useMutation({
+    mutationFn: usersApi.createAddress,
+    onSuccess: () => {
+      setAddressMessage('Address saved successfully.');
+      setAddressForm({ label: '', recipientName: '', phone: '', addressLine1: '', addressLine2: '', city: '', district: '', postalCode: '', isDefault: true });
+      queryClient.invalidateQueries({ queryKey: ['profile-addresses'] });
+    },
+    onError: () => setAddressMessage('Unable to save this address.'),
+  });
+
+  const passwordMutation = useMutation({
+    mutationFn: authApi.changePassword,
+    onSuccess: () => {
+      setPasswordMessage('Password updated successfully.');
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+    },
+    onError: () => setPasswordMessage('Current password or validation failed.'),
+  });
+
+  const handleProfileSave = () => {
+    profileMutation.mutate({
+      firstName: profileForm.firstName,
+      lastName: profileForm.lastName,
+      phone: profileForm.phone,
+    });
+  };
+
+  const handlePasswordSave = () => {
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordMessage('New password and confirmation do not match.');
+      return;
+    }
+    passwordMutation.mutate({ currentPassword: passwordForm.currentPassword, newPassword: passwordForm.newPassword });
+  };
+
+  const handleDeleteAddress = async (id: number) => {
+    await usersApi.deleteAddress(id);
+    queryClient.invalidateQueries({ queryKey: ['profile-addresses'] });
+  };
+
+  const handleSetDefaultAddress = async (id: number) => {
+    await usersApi.setDefaultAddress(id);
+    queryClient.invalidateQueries({ queryKey: ['profile-addresses'] });
+  };
 
   const handleLogout = () => {
+    useCartStore.getState().clearCart();
     logout();
     navigate('/login');
   };
 
+  const profileName = profile?.name ?? user?.name ?? 'Freshora customer';
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-sm w-full text-center animate-in zoom-in-95 duration-300">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-gray-100 max-w-sm w-full text-center">
           <div className="w-20 h-20 bg-primary-50 rounded-full flex items-center justify-center mx-auto mb-6">
             <Lock className="w-10 h-10 text-primary-500" />
           </div>
           <h2 className="text-2xl font-bold text-gray-900 mb-2">Sign In Required</h2>
-          <p className="text-gray-500 mb-8">Please sign in to view your profile, track orders, and manage settings.</p>
-          <div className="space-y-3">
-            <button 
-              onClick={() => navigate('/login')}
-              className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-primary-500/30"
-            >
-              Sign In
-            </button>
-            <button 
-              onClick={() => navigate('/register')}
-              className="w-full py-3 bg-white hover:bg-gray-50 text-gray-700 font-medium rounded-xl border border-gray-200 transition-colors"
-            >
-              Create Account
-            </button>
-          </div>
+          <p className="text-gray-500 mb-8">Please sign in to view your profile and secure account settings.</p>
+          <button onClick={() => navigate('/login')} className="w-full py-3 bg-primary-600 hover:bg-primary-700 text-white font-semibold rounded-xl transition-colors shadow-lg shadow-primary-500/30">Sign In</button>
         </div>
       </div>
     );
   }
 
-  const accountMenu = [
-    { label: 'My Orders', icon: Package, color: 'bg-blue-50 text-blue-600', link: '/orders' },
-    { label: 'Saved Addresses', icon: MapPin, color: 'bg-green-50 text-green-600', link: '#soon' },
-    { label: 'Payment Methods', icon: CreditCard, color: 'bg-purple-50 text-purple-600', link: '#soon' },
-    { label: 'Notifications', icon: Bell, color: 'bg-amber-50 text-amber-600', link: '#soon' },
-  ];
-
-  const supportMenu = [
-    { label: 'Preferences', icon: Settings, color: 'bg-gray-50 text-gray-600', link: '#soon' },
-    { label: 'Help & Support', icon: HelpCircle, color: 'bg-cyan-50 text-cyan-600', link: '#soon' },
-    { label: 'Terms & Privacy', icon: FileText, color: 'bg-indigo-50 text-indigo-600', link: '#soon' },
-  ];
-
   return (
     <div className="min-h-screen bg-gray-50 pb-24 pt-20">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6">
-        
-        {/* Hero Card */}
-        <div className="bg-white rounded-3xl p-6 sm:p-8 shadow-sm border border-gray-100 mt-4 sm:mt-8 flex flex-col sm:flex-row items-center sm:items-start text-center sm:text-left gap-6 animate-in slide-in-from-bottom-8 fade-in duration-500">
-          <div className="w-20 h-20 rounded-full bg-primary-100 flex items-center justify-center shrink-0 border-4 border-white shadow-md relative overflow-hidden">
-            {user.avatar ? (
-              <img src={user.avatar} alt={user.name} className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-3xl font-bold text-primary-600">
-                {user.name.charAt(0).toUpperCase()}
-              </span>
-            )}
-          </div>
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold text-gray-900 mb-1">{user.name}</h1>
-            <p className="text-gray-500 mb-1">{user.email}</p>
-            <p className="text-gray-400 text-sm">{user.phone || 'No phone added'}</p>
-          </div>
-          <button className="flex items-center gap-2 px-4 py-2 border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors shrink-0">
-            <Edit2 className="w-4 h-4" />
-            Edit Profile
-          </button>
-        </div>
-
-        {/* Stats Row */}
-        <div className="grid grid-cols-3 gap-3 sm:gap-4 mt-6 animate-in slide-in-from-bottom-8 fade-in duration-500 delay-100 fill-mode-both">
-          <div className="bg-white rounded-2xl p-4 text-center border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900 mb-1">12</div>
-            <div className="text-xs sm:text-sm text-gray-500 font-medium">Orders</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 text-center border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900 mb-1">3</div>
-            <div className="text-xs sm:text-sm text-gray-500 font-medium">Saved</div>
-          </div>
-          <div className="bg-white rounded-2xl p-4 text-center border border-gray-100 shadow-sm">
-            <div className="text-2xl font-bold text-gray-900 mb-1">2024</div>
-            <div className="text-xs sm:text-sm text-gray-500 font-medium">Member since</div>
-          </div>
-        </div>
-
-        {/* Menu Group 1: My Account */}
-        <div className="mt-8 mb-6 animate-in slide-in-from-bottom-8 fade-in duration-500 delay-200 fill-mode-both">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 px-4">My Account</h3>
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-            {accountMenu.map((item, idx) => {
-              const isLast = idx === accountMenu.length - 1;
-              const Icon = item.icon;
-              return (
-                <Link 
-                  key={item.label}
-                  to={item.link === '#soon' ? '#' : item.link}
-                  onClick={(e) => {
-                    if (item.link === '#soon') {
-                      e.preventDefault();
-                      alert('Coming soon!');
-                    }
-                  }}
-                  className={`flex items-center p-4 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 ${item.color}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <span className="flex-1 font-medium text-gray-900">{item.label}</span>
-                  <ChevronRight className="w-5 h-5 text-gray-300" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Menu Group 2: Support & Settings */}
-        <div className="mb-8 animate-in slide-in-from-bottom-8 fade-in duration-500 delay-300 fill-mode-both">
-          <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3 px-4">Support & Settings</h3>
-          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
-            {supportMenu.map((item, idx) => {
-              const isLast = idx === supportMenu.length - 1;
-              const Icon = item.icon;
-              return (
-                <Link 
-                  key={item.label}
-                  to={item.link === '#soon' ? '#' : item.link}
-                  onClick={(e) => {
-                    if (item.link === '#soon') {
-                      e.preventDefault();
-                      alert('Coming soon!');
-                    }
-                  }}
-                  className={`flex items-center p-4 hover:bg-gray-50 transition-colors ${!isLast ? 'border-b border-gray-100' : ''}`}
-                >
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center mr-4 ${item.color}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  <span className="flex-1 font-medium text-gray-900">{item.label}</span>
-                  <ChevronRight className="w-5 h-5 text-gray-300" />
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Logout Button */}
-        <div className="animate-in slide-in-from-bottom-8 fade-in duration-500 delay-500 fill-mode-both">
-          {showLogoutConfirm ? (
-            <div className="bg-red-50 rounded-2xl p-4 flex items-center justify-between border border-red-100">
-              <span className="text-red-700 font-medium">Are you sure you want to sign out?</span>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setShowLogoutConfirm(false)}
-                  className="px-4 py-2 text-gray-600 bg-white hover:bg-gray-50 rounded-lg border border-gray-200 transition-colors text-sm font-medium"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={handleLogout}
-                  className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-sm font-medium shadow-sm shadow-red-500/20"
-                >
-                  Sign Out
-                </button>
-              </div>
+      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+        <div className="mb-6 rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm uppercase tracking-[0.2em] text-emerald-600">Profile</p>
+              <h1 className="mt-2 text-3xl font-black text-slate-900">{profileName}</h1>
+              <p className="mt-2 text-gray-500">{profile?.email ?? user.email}</p>
             </div>
-          ) : (
-            <button 
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full flex items-center p-4 bg-white hover:bg-red-50 text-red-600 rounded-2xl border border-red-100 transition-colors"
-            >
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center mr-4 bg-red-100 text-red-600">
-                <LogOut className="w-5 h-5" />
-              </div>
-              <span className="flex-1 font-medium text-left">Sign Out</span>
-            </button>
-          )}
+            <div className="rounded-full border border-emerald-100 bg-emerald-50 px-3 py-1 text-sm font-semibold text-emerald-700">{profile?.accountStatus ?? user.accountStatus ?? 'ACTIVE'}</div>
+          </div>
         </div>
 
+        <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="space-y-6">
+            <section className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-900">Personal information</h2>
+              </div>
+
+              {profileLoading ? <p className="text-sm text-gray-500">Loading profile…</p> : (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <input value={profileForm.firstName} onChange={(event) => setProfileForm((current) => ({ ...current, firstName: event.target.value }))} placeholder="First name" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={profileForm.lastName} onChange={(event) => setProfileForm((current) => ({ ...current, lastName: event.target.value }))} placeholder="Last name" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={profileForm.phone} onChange={(event) => setProfileForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Phone number" className="sm:col-span-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                </div>
+              )}
+
+              {profileMessage && <p className="mt-4 text-sm text-emerald-700">{profileMessage}</p>}
+              <button onClick={handleProfileSave} disabled={profileMutation.isPending} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">
+                <Save className="h-4 w-4" /> {profileMutation.isPending ? 'Saving…' : 'Save profile'}
+              </button>
+            </section>
+
+            <section className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-xl font-bold text-slate-900">Delivery addresses</h2>
+                <div className="inline-flex items-center gap-2 text-sm text-emerald-700"><MapPin className="h-4 w-4" /> {addresses.length} saved</div>
+              </div>
+
+              {addressesLoading ? <p className="text-sm text-gray-500">Loading addresses…</p> : (
+                <div className="space-y-3">
+                  {addresses.length ? addresses.map((address: AddressRecord) => (
+                    <div key={address.id} className={`rounded-2xl border p-4 ${address.isDefault ? 'border-emerald-200 bg-emerald-50' : 'border-gray-200 bg-white'}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <p className="font-semibold text-slate-900">{address.label}</p>
+                            {address.isDefault && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-700">Default</span>}
+                          </div>
+                          <p className="mt-2 text-sm text-gray-700">{address.recipientName} • {address.phone}</p>
+                          <p className="text-sm text-gray-600">{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}, {address.city}, {address.district}{address.postalCode ? `, ${address.postalCode}` : ''}</p>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {!address.isDefault && <button onClick={() => handleSetDefaultAddress(address.id)} className="text-xs font-semibold text-emerald-700">Set default</button>}
+                          <button onClick={() => handleDeleteAddress(address.id)} className="text-xs font-semibold text-red-600">Delete</button>
+                        </div>
+                      </div>
+                    </div>
+                  )) : <p className="text-sm text-gray-500">No delivery addresses saved yet.</p>}
+                </div>
+              )}
+
+              <div className="mt-5 rounded-2xl border border-dashed border-gray-200 p-4">
+                <h3 className="mb-3 font-semibold text-slate-900">Add address</h3>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <input value={addressForm.label} onChange={(event) => setAddressForm((current) => ({ ...current, label: event.target.value }))} placeholder="Home / Office" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.recipientName} onChange={(event) => setAddressForm((current) => ({ ...current, recipientName: event.target.value }))} placeholder="Recipient name" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.phone} onChange={(event) => setAddressForm((current) => ({ ...current, phone: event.target.value }))} placeholder="Phone" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.city} onChange={(event) => setAddressForm((current) => ({ ...current, city: event.target.value }))} placeholder="City" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.district} onChange={(event) => setAddressForm((current) => ({ ...current, district: event.target.value }))} placeholder="District" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.postalCode} onChange={(event) => setAddressForm((current) => ({ ...current, postalCode: event.target.value }))} placeholder="Postal code" className="rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.addressLine1} onChange={(event) => setAddressForm((current) => ({ ...current, addressLine1: event.target.value }))} placeholder="Address line 1" className="sm:col-span-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                  <input value={addressForm.addressLine2} onChange={(event) => setAddressForm((current) => ({ ...current, addressLine2: event.target.value }))} placeholder="Address line 2 (optional)" className="sm:col-span-2 rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                </div>
+                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-600"><input type="checkbox" checked={addressForm.isDefault} onChange={(event) => setAddressForm((current) => ({ ...current, isDefault: event.target.checked }))} /> Set as default address</label>
+                {addressMessage && <p className="mt-3 text-sm text-emerald-700">{addressMessage}</p>}
+                <button onClick={() => addressMutation.mutate(addressForm)} disabled={addressMutation.isPending} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"><Plus className="h-4 w-4" /> {addressMutation.isPending ? 'Saving…' : 'Add address'}</button>
+              </div>
+            </section>
+          </div>
+
+          <aside className="space-y-6">
+            <section className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <h2 className="text-xl font-bold text-slate-900">Account</h2>
+              <dl className="mt-4 space-y-3 text-sm text-gray-600">
+                <div className="flex items-center justify-between"><dt>Role</dt><dd className="font-semibold text-slate-900">{profile?.role ?? user.role ?? 'CUSTOMER'}</dd></div>
+                <div className="flex items-center justify-between"><dt>Status</dt><dd className="font-semibold text-slate-900">{profile?.accountStatus ?? user.accountStatus ?? 'ACTIVE'}</dd></div>
+                <div className="flex items-center justify-between"><dt>Email</dt><dd className="font-semibold text-slate-900">{profile?.email ?? user.email}</dd></div>
+              </dl>
+            </section>
+
+            <section className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+              <h2 className="text-xl font-bold text-slate-900">Security</h2>
+              <div className="mt-4 space-y-3">
+                <input type="password" value={passwordForm.currentPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, currentPassword: event.target.value }))} placeholder="Current password" className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                <input type="password" value={passwordForm.newPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, newPassword: event.target.value }))} placeholder="New password" className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+                <input type="password" value={passwordForm.confirmPassword} onChange={(event) => setPasswordForm((current) => ({ ...current, confirmPassword: event.target.value }))} placeholder="Confirm new password" className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm" />
+              </div>
+              {passwordMessage && <p className="mt-3 text-sm text-emerald-700">{passwordMessage}</p>}
+              <button onClick={handlePasswordSave} disabled={passwordMutation.isPending} className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"><CheckCircle2 className="h-4 w-4" /> {passwordMutation.isPending ? 'Updating…' : 'Update password'}</button>
+            </section>
+
+            {defaultAddress && (
+              <section className="rounded-3xl bg-white p-6 shadow-sm border border-gray-100">
+                <h2 className="text-xl font-bold text-slate-900">Default address</h2>
+                <p className="mt-3 text-sm text-gray-700">{defaultAddress.recipientName}</p>
+                <p className="text-sm text-gray-600">{defaultAddress.addressLine1}, {defaultAddress.city}</p>
+              </section>
+            )}
+          </aside>
+        </div>
       </div>
+
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/35 flex items-center justify-center p-4 z-50">
+          <div className="max-w-sm rounded-3xl bg-white p-6 shadow-xl">
+            <h3 className="text-xl font-bold text-gray-900">Log out?</h3>
+            <p className="mt-2 text-sm text-gray-600">You will need to sign in again to access your Freshora account.</p>
+            <div className="mt-6 flex gap-3">
+              <button onClick={() => setShowLogoutConfirm(false)} className="flex-1 rounded-xl border border-gray-200 bg-white px-4 py-3 font-semibold text-gray-700">Cancel</button>
+              <button onClick={handleLogout} className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white">Log out</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
