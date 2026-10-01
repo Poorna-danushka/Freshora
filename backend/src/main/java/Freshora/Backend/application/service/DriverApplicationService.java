@@ -198,7 +198,7 @@ public class DriverApplicationService {
         applicationReviewHistoryRepository.save(history);
 
         if (targetStatus == ApplicationStatus.APPROVED) {
-            triggerApprovedAccountSetup(application.getEmail(), Role.DELIVERY_RIDER);
+            triggerApprovedAccountSetup(application.getEmail(), Role.DRIVER);
         }
 
         return new MessageResponse("Driver application " + targetStatus.name().toLowerCase(Locale.ROOT).replace('_', ' ') + " recorded");

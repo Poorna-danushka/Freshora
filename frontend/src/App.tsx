@@ -134,9 +134,9 @@ export default function App() {
               </Route>
             </Route>
 
-            <Route element={<ProtectedRoute allowedRoles={['DELIVERY_RIDER']} />}>
+            <Route element={<ProtectedRoute allowedRoles={['DRIVER']} />}>
               <Route element={<MainLayout />}>
-                <Route path="/delivery-rider-dashboard" element={<RoleDashboardPage />} />
+                <Route path="/driver-dashboard" element={<RoleDashboardPage />} />
               </Route>
             </Route>
 

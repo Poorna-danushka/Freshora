@@ -48,6 +48,15 @@ class BackendApplicationTests {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .build();
+        userRepository.findByEmail("admin@freshora.test").orElseGet(() -> userRepository.save(User.builder()
+                .firstName("Demo")
+                .lastName("Admin")
+                .email("admin@freshora.test")
+                .password(passwordEncoder.encode("FreshoraAdmin123!"))
+                .role(Role.ADMIN)
+                .enabled(true)
+                .status(AccountStatus.ACTIVE)
+                .build()));
     }
 
     @Autowired
@@ -493,7 +502,7 @@ class BackendApplicationTests {
                 .lastName("Rider")
                 .email(email)
                 .password(passwordEncoder.encode("StrongPassword123!"))
-                .role(Role.DELIVERY_RIDER)
+                .role(Role.DRIVER)
                 .enabled(true)
                 .status(AccountStatus.ACTIVE)
                 .build());

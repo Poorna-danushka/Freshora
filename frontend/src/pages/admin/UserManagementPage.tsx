@@ -9,7 +9,7 @@ const ROLES = [
   { id: 'ADMIN', label: 'Administrators' },
   { id: 'STORE_MANAGER', label: 'Store Managers' },
   { id: 'STORE_STAFF', label: 'Store Staff' },
-  { id: 'DELIVERY_RIDER', label: 'Delivery Riders' },
+  { id: 'DRIVER', label: 'Drivers' },
   { id: 'CUSTOMER', label: 'Customers' },
 ];
 
@@ -22,7 +22,7 @@ export function UserManagementPage() {
     lastName: '',
     email: '',
     password: '',
-    role: 'STORE_MANAGER' as 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN',
+    role: 'STORE_MANAGER' as 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN',
   });
   const [modalSuccess, setModalSuccess] = useState('');
   const [modalError, setModalError] = useState('');
@@ -192,7 +192,7 @@ export function UserManagementPage() {
                           ? 'bg-purple-500/10 text-purple-400 border-purple-500/20'
                           : user.role === 'STORE_MANAGER'
                           ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : user.role === 'DELIVERY_RIDER'
+                          : user.role === 'DRIVER'
                           ? 'bg-teal-500/10 text-teal-400 border-teal-500/20'
                           : 'bg-slate-800 text-slate-300 border-slate-700'
                       }`}
@@ -304,7 +304,7 @@ export function UserManagementPage() {
               >
                 <option value="STORE_MANAGER">Store Manager</option>
                 <option value="STORE_STAFF">Store Staff</option>
-                <option value="DELIVERY_RIDER">Delivery Rider</option>
+                <option value="DRIVER">Driver</option>
                 <option value="ADMIN">System Administrator</option>
               </select>
 

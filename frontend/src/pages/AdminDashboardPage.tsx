@@ -28,7 +28,7 @@ export function AdminDashboardPage() {
     lastName: '',
     email: '',
     password: '',
-    role: 'STORE_MANAGER' as 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN',
+    role: 'STORE_MANAGER' as 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN',
   });
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
@@ -638,7 +638,7 @@ export function AdminDashboardPage() {
               >
                 <option value="STORE_MANAGER" className="bg-slate-900 text-white">Store Manager</option>
                 <option value="STORE_STAFF" className="bg-slate-900 text-white">Store Staff</option>
-                <option value="DELIVERY_RIDER" className="bg-slate-900 text-white">Delivery Rider</option>
+                <option value="DRIVER" className="bg-slate-900 text-white">Driver</option>
                 <option value="ADMIN" className="bg-slate-900 text-white">System Administrator</option>
               </select>
 

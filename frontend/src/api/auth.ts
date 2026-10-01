@@ -14,7 +14,7 @@ export interface BackendUser {
   phone?: string;
   profileImageUrl?: string;
   accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
-  role: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN';
+  role: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN';
 }
 interface AuthResponse { message: string; user: BackendUser; }
 
@@ -24,8 +24,8 @@ export const getDashboardPath = (role: User['role']) => {
       return '/store-manager-dashboard';
     case 'STORE_STAFF':
       return '/store-staff-dashboard';
-    case 'DELIVERY_RIDER':
-      return '/delivery-rider-dashboard';
+    case 'DRIVER':
+      return '/driver-dashboard';
     case 'ADMIN':
       return '/admin-dashboard';
     case 'CUSTOMER':

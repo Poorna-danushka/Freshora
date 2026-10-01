@@ -82,7 +82,7 @@ public class UserProfileController {
     }
 
     @GetMapping("/driver/me")
-    @PreAuthorize("hasRole('DELIVERY_RIDER')")
+    @PreAuthorize("hasRole('DRIVER')")
     public DriverProfileResponse getDriverProfile(Authentication authentication) {
         User currentUser = userService.findByEmail(authentication.getName());
         return userProfileService.getDriverProfile(currentUser);

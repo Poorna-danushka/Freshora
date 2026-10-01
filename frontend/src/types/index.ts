@@ -148,7 +148,7 @@ export interface User {
   phone?: string;
   avatar?: string;
   accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
-  role?: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN';
+  role?: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN';
 }
 
 export interface AuthTokens {
