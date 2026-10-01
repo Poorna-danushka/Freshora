@@ -16,22 +16,15 @@ const STATUS_CONFIG: Record<OrderStatus, { label: string; color: string }> = {
 };
 
 export function OrderHistoryPage() {
-  const { data: orders, isLoading } = useQuery({
+  const { data: orders, isLoading, isError, refetch } = useQuery({
     queryKey: ['orders'],
     queryFn: ordersApi.getOrders,
   });
 
   type DisplayOrder = { id: string; storeName: string; status: OrderStatus; total: number; itemCount: number; placedAt: string };
 
-  const MOCK_ORDERS: DisplayOrder[] = [
-    { id: 'ORD-1001', storeName: 'Cargills Food City', status: 'DELIVERED', total: 2450, itemCount: 5, placedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
-    { id: 'ORD-1002', storeName: 'Keells Super', status: 'DELIVERING', total: 1870, itemCount: 3, placedAt: new Date(Date.now() - 40 * 60 * 1000).toISOString() },
-    { id: 'ORD-1003', storeName: 'Laugfs Supermart', status: 'CANCELLED', total: 980, itemCount: 2, placedAt: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
-  ];
-
-  const displayOrders: DisplayOrder[] = (orders && orders.length > 0)
-    ? orders.map((o) => ({ id: o.id, storeName: o.storeName, status: o.status, total: o.total, itemCount: o.items.reduce((s, i) => s + i.quantity, 0), placedAt: o.placedAt }))
-    : MOCK_ORDERS;
+  const displayOrders: DisplayOrder[] = (orders ?? [])
+    .map((o) => ({ id: o.id, storeName: o.storeName, status: o.status, total: o.total, itemCount: o.items.reduce((s, i) => s + i.quantity, 0), placedAt: o.placedAt }));
 
   const formatDate = (iso: string) => {
     const date = new Date(iso);
@@ -54,6 +47,11 @@ export function OrderHistoryPage() {
         {isLoading ? (
           <div className="space-y-4">
             {[...Array(3)].map((_, i) => <div key={i} className="skeleton h-28 rounded-2xl" />)}
+          </div>
+        ) : isError ? (
+          <div className="card p-8 text-center" role="alert">
+            <p className="text-gray-600 mb-4">We couldn't load your orders. Please try again.</p>
+            <button onClick={() => refetch()} className="btn-primary">Retry</button>
           </div>
         ) : displayOrders.length === 0 ? (
           <div className="card p-12 text-center">

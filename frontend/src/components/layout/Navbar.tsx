@@ -9,7 +9,7 @@ import { useActiveStoreStore } from '@/store/useActiveStoreStore';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
 import { useLocationStore } from '@/store/useLocationStore';
-import { authApi } from '@/api/auth';
+import { authApi, getDashboardPath } from '@/api/auth';
 
 export function Navbar() {
   const [locationModalOpen, setLocationModalOpen] = useState(false);
@@ -28,6 +28,7 @@ export function Navbar() {
   const totalItems = useCartStore((s) => s.totalItems());
 
   const isLanding = location.pathname === '/';
+  const workspacePath = user?.role ? getDashboardPath(user.role) : '/login';
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -288,6 +289,25 @@ export function Navbar() {
                     {/* Items */}
                     <div className="p-2">
                       <Link
+                        to={workspacePath}
+                        onClick={() => setDropdownOpen(false)}
+                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700 transition-colors group"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-emerald-50 flex items-center justify-center">
+                          <User size={14} className="text-emerald-700" />
+                        </div>
+                        Workspace
+                      </Link>
+                      {user?.role === 'ADMIN' && (
+                        <>
+                          <Link to="/admin/store-management" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">Store Management</Link>
+                          <Link to="/admin/driver-management" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">Driver Management</Link>
+                        </>
+                      )}
+                      {user?.role === 'STORE_MANAGER' && (
+                        <Link to="/store/staff" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">Store staff</Link>
+                      )}
+                      <Link
                         to="/profile"
                         onClick={() => setDropdownOpen(false)}
                         className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700 transition-colors group"
@@ -311,6 +331,7 @@ export function Navbar() {
                       <button
                         onClick={async () => {
                           await authApi.logout();
+                          useCartStore.getState().clearCart();
                           logout();
                           setDropdownOpen(false);
                         }}
@@ -352,6 +373,8 @@ export function Navbar() {
               {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                aria-label={mobileMenuOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileMenuOpen}
                 className="md:hidden p-2.5 rounded-xl transition-all duration-200"
                 style={{ color: darkMode ? 'rgba(255,255,255,0.75)' : '#4b5563' }}
                 onMouseEnter={e => (e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : '#f3f4f6')}
@@ -382,7 +405,7 @@ export function Navbar() {
         {/* ── Mobile menu drawer ───────────────────────────────────────── */}
         <div
           className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${
-            mobileMenuOpen ? 'max-h-[420px] opacity-100' : 'max-h-0 opacity-0'
+            mobileMenuOpen ? 'max-h-[560px] opacity-100' : 'max-h-0 opacity-0'
           }`}
           style={{
             background: 'rgba(255,255,255,0.98)',
@@ -416,7 +439,7 @@ export function Navbar() {
                 </Link>
                 <div className="mx-3 my-1 h-px bg-gray-100" />
                 <button
-                  onClick={() => { logout(); setMobileMenuOpen(false); }}
+                  onClick={() => { useCartStore.getState().clearCart(); logout(); setMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-50 text-red-500 font-medium transition-colors"
                 >
                   <LogOut size={17} /> Sign Out

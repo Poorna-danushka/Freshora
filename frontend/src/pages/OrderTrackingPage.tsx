@@ -18,7 +18,7 @@ const STEP_ICONS: Record<OrderStatus, string> = {
 export function OrderTrackingPage() {
   const { orderId } = useParams<{ orderId: string }>();
 
-  const { data: tracking, isLoading } = useQuery({
+  const { data: tracking, isLoading, isError, refetch } = useQuery({
     queryKey: ['track', orderId],
     queryFn: () => ordersApi.trackOrder(orderId!),
     enabled: !!orderId,
@@ -38,12 +38,13 @@ export function OrderTrackingPage() {
     );
   }
 
-  if (!tracking) {
+  if (isError || !tracking) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-500">Tracking info not available</p>
-          <Link to="/orders" className="btn-primary mt-4">View Orders</Link>
+        <div className="text-center" role="alert">
+          <p className="text-gray-500">Tracking information is unavailable right now.</p>
+          <button onClick={() => refetch()} className="btn-primary mt-4">Retry</button>
+          <Link to="/orders" className="btn-secondary mt-4 ml-2">View Orders</Link>
         </div>
       </div>
     );

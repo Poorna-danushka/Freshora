@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
-import { MapPin, ChevronRight, Star, Clock, Truck, Shield, Headphones, Zap, ArrowRight, Package, CheckCircle } from 'lucide-react';
+import { MapPin, ChevronRight, Star, Clock, Truck, Shield, Headphones, ArrowRight, CheckCircle, Store, Bike } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
+import { Link } from 'react-router-dom';
 import { storesApi } from '@/api/stores';
 import { productsApi } from '@/api/products';
 import { LocationModal } from '@/components/location/LocationModal';
@@ -15,7 +16,6 @@ import heroProduce from '@/assets/hero_produce.png';
 import promoVegetables from '@/assets/promo_vegetables.png';
 import promoFruits from '@/assets/promo_fruits.png';
 import promoSnacks from '@/assets/promo_snacks.png';
-import deliveryRider from '@/assets/delivery_rider.png';
 import trustFresh from '@/assets/trust_fresh.png';
 import appLifestyle from '@/assets/app_lifestyle.png';
 
@@ -64,13 +64,6 @@ const CATEGORIES = [
   { id: 'cat-10', name: 'Personal Care', icon: '🧴', color: 'from-indigo-100 to-blue-50 hover:from-indigo-200 hover:to-blue-100' },
   { id: 'cat-11', name: 'Frozen Food', icon: '🧊', color: 'from-cyan-100 to-blue-50 hover:from-cyan-200 hover:to-blue-100' },
   { id: 'cat-12', name: 'Baby & Kids', icon: '🍼', color: 'from-rose-100 to-pink-50 hover:from-rose-200 hover:to-pink-100' },
-];
-
-const HOW_IT_WORKS = [
-  { step: '01', icon: MapPin, title: 'Select Location', desc: 'Enter your delivery address in Colombo to see available stores near you.' },
-  { step: '02', icon: Package, title: 'Choose a Store', desc: 'Browse stores serving your area and pick your favourite grocery shop.' },
-  { step: '03', icon: Zap, title: 'Add to Cart', desc: 'Browse products, add items to your cart, and apply any available offers.' },
-  { step: '04', icon: Truck, title: 'Fast Delivery', desc: 'Our bike riders deliver fresh groceries to your door in minutes.' },
 ];
 
 const BENEFITS = [
@@ -136,7 +129,6 @@ export function LandingPage() {
   const stat3 = useCounter(STATS[3].value, 2000, statsInView);
   const statCounts = [stat0, stat1, stat2, stat3];
 
-  const { ref: howRef, inView: howInView } = useInView();
   const { ref: benefitsRef, inView: benefitsInView } = useInView();
 
   const { data: stores, isLoading: storesLoading } = useQuery({
@@ -534,61 +526,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ─── HOW IT WORKS ──────────────────────────────────────────────────── */}
-      <section className="py-20 bg-white overflow-hidden">
-        <div className="container-app">
-          <div ref={howRef} className="grid md:grid-cols-2 gap-16 items-center">
-            {/* Left — image */}
-            <div className={`relative transition-all duration-700 ${howInView ? 'opacity-100 translate-x-0' : 'opacity-0 -translate-x-12'}`}>
-              <div className="absolute -top-6 -left-6 w-64 h-64 bg-primary-50 rounded-full -z-10" />
-              <div className="absolute -bottom-6 -right-6 w-48 h-48 bg-accent-50 rounded-full -z-10" />
-              <img
-                src={deliveryRider}
-                alt="Freshora delivery rider"
-                className="w-full max-w-md mx-auto rounded-3xl shadow-2xl"
-              />
-              {/* Delivery time badge */}
-              <div className="absolute -bottom-4 -right-4 bg-white rounded-2xl shadow-card-hover px-5 py-3 border border-gray-100">
-                <p className="text-xs text-gray-400">Average delivery</p>
-                <p className="text-2xl font-extrabold text-primary-600">30 min</p>
-              </div>
-            </div>
-
-            {/* Right — steps */}
-            <div className={`transition-all duration-700 delay-200 ${howInView ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-12'}`}>
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-primary-100 text-primary-700 rounded-full text-sm font-semibold mb-4">
-                How it works
-              </div>
-              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3 leading-tight">
-                Groceries in 4 simple steps
-              </h2>
-              <p className="text-gray-500 mb-8">From tap to door — it's never been easier to get fresh groceries in Colombo.</p>
-
-              <div className="space-y-5">
-                {HOW_IT_WORKS.map((step, i) => (
-                  <div
-                    key={step.step}
-                    className={`flex items-start gap-4 p-4 rounded-2xl transition-all duration-500 hover:bg-primary-50 group ${howInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-6'}`}
-                    style={{ transitionDelay: `${300 + i * 100}ms` }}
-                  >
-                    <div className="w-12 h-12 bg-primary-500 rounded-2xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform shadow-sm">
-                      <step.icon size={20} className="text-white" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[10px] font-bold text-primary-400 tracking-widest">STEP {step.step}</span>
-                      </div>
-                      <h3 className="font-bold text-gray-900 mb-0.5">{step.title}</h3>
-                      <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* ─── TRUST / BENEFITS ──────────────────────────────────────────────── */}
       <section ref={benefitsRef} className="py-20 bg-gray-50 overflow-hidden">
         <div className="container-app">
@@ -650,6 +587,7 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ─── PARTNER CTA ──────────────────────────────────────────────────── */}
       {/* ─── FINAL CTA ─────────────────────────────────────────────────────── */}
       <section className="py-20 relative overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800">
         {/* Animated background dots */}
@@ -689,6 +627,43 @@ export function LandingPage() {
             >
               View Stores <ChevronRight size={20} />
             </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Partner pathway: kept at the end so customer shopping remains the primary journey. */}
+      <section className="bg-white py-16">
+        <div className="container-app">
+          <div className="relative overflow-hidden rounded-[2rem] bg-[#0a2e1a] px-6 py-10 text-white sm:px-10 md:px-14 md:py-14">
+            <div className="absolute -right-20 -top-24 h-80 w-80 rounded-full bg-primary-400/15" />
+            <div className="absolute -bottom-32 left-1/3 h-64 w-64 rounded-full bg-white/5" />
+            <div className="relative">
+              <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+                <div className="max-w-2xl">
+                  <p className="text-sm font-bold uppercase tracking-[0.18em] text-primary-200">Grow with Freshora</p>
+                  <h2 className="mt-3 text-3xl font-extrabold leading-tight md:text-4xl">Bring your store or delivery service to more neighbours.</h2>
+                  <p className="mt-4 max-w-xl leading-relaxed text-primary-100">Choose the path that fits you. Applications are reviewed by Freshora before partner access is activated.</p>
+                </div>
+                <Link to="/join" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-primary-800 shadow-lg transition-transform hover:-translate-y-0.5 hover:bg-primary-50">
+                  Join Freshora <ArrowRight size={17} />
+                </Link>
+              </div>
+
+              <div className="mt-9 grid gap-4 md:grid-cols-2">
+                <Link to="/join/store" className="group rounded-2xl border border-white/15 bg-white/10 p-5 transition-all hover:-translate-y-1 hover:bg-white/15">
+                  <Store size={22} className="text-primary-200" />
+                  <span className="mt-4 block text-lg font-bold">Join as a store</span>
+                  <span className="mt-1 block text-sm leading-relaxed text-primary-100">Put your products online and manage customer orders in one place.</span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-white">Explore store partnership <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></span>
+                </Link>
+                <Link to="/join/driver" className="group rounded-2xl border border-white/15 bg-white/10 p-5 transition-all hover:-translate-y-1 hover:bg-white/15">
+                  <Bike size={22} className="text-amber-200" />
+                  <span className="mt-4 block text-lg font-bold">Join as a driver</span>
+                  <span className="mt-1 block text-sm leading-relaxed text-primary-100">Help bring fresh orders from local stores to customers' doors.</span>
+                  <span className="mt-4 inline-flex items-center gap-1 text-sm font-bold text-white">Explore driver partnership <ArrowRight size={15} className="transition-transform group-hover:translate-x-1" /></span>
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

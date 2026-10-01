@@ -1,6 +1,7 @@
 import { X, Plus, Minus, Star, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/store/useCartStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import type { Product } from '@/types';
 
 interface ProductModalProps {
@@ -11,6 +12,7 @@ interface ProductModalProps {
 export function ProductModal({ product, onClose }: ProductModalProps) {
   const [qty, setQty] = useState(1);
   const { addItem, items, updateQuantity } = useCartStore();
+  const { requireAuth } = useRequireAuth();
   const cartItem = product ? items.find((i) => i.product.id === product.id) : null;
 
   if (!product) return null;
@@ -20,6 +22,8 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
     : 0;
 
   const handleAddToCart = () => {
+    if (!requireAuth()) return;
+
     for (let i = 0; i < qty; i++) addItem(product);
     onClose();
   };
@@ -94,7 +98,7 @@ export function ProductModal({ product, onClose }: ProductModalProps) {
                   <Minus size={16} />
                 </button>
                 <span className="text-white font-bold min-w-[20px] text-center">{cartItem.quantity}</span>
-                <button onClick={() => addItem(product)} className="text-white hover:bg-primary-400 rounded-lg p-0.5 transition-colors">
+                <button onClick={() => { if (requireAuth()) addItem(product); }} className="text-white hover:bg-primary-400 rounded-lg p-0.5 transition-colors">
                   <Plus size={16} />
                 </button>
               </div>

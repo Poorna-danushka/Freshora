@@ -5,8 +5,11 @@ import Freshora.Backend.exception.ResourceNotFoundException;
 import Freshora.Backend.user.entity.User;
 import Freshora.Backend.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,12 @@ public class UserService {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return toResponse(user);
+    }
+
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
+                .map(this::toResponse)
+                .toList();
     }
 
     public User findByEmail(String email) {

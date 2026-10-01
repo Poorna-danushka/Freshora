@@ -4,7 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 const dashboardNames = {
   STORE_MANAGER: 'Store Manager Dashboard',
   STORE_STAFF: 'Store Staff Dashboard',
-  DELIVERY_RIDER: 'Delivery Rider Dashboard',
+  DRIVER: 'Driver Dashboard',
 } as const;
 
 export function RoleDashboardPage() {

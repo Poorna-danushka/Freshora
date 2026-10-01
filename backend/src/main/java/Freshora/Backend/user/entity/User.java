@@ -41,6 +41,12 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String password;
 
+    @Column(length = 30)
+    private String phone;
+
+    @Column(length = 500)
+    private String profileImageUrl;
+
     @Enumerated(EnumType.STRING)
     @Builder.Default
     @Column(nullable = false)
@@ -49,6 +55,11 @@ public class User implements UserDetails {
     @Builder.Default
     @Column(nullable = false)
     private boolean enabled = true;
+
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
+    @Column(nullable = false)
+    private AccountStatus status = AccountStatus.ACTIVE;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)
@@ -85,6 +96,6 @@ public class User implements UserDetails {
 
     @Override
     public boolean isEnabled() {
-        return enabled;
+        return enabled && status == AccountStatus.ACTIVE;
     }
 }

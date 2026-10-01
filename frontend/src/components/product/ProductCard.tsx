@@ -1,6 +1,7 @@
 import { Plus, Minus, Star, ShoppingCart } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/store/useCartStore';
+import { useRequireAuth } from '@/hooks/useRequireAuth';
 import type { Product } from '@/types';
 
 interface ProductCardProps {
@@ -11,12 +12,17 @@ interface ProductCardProps {
 export function ProductCard({ product, onViewDetails }: ProductCardProps) {
   const [imageError, setImageError] = useState(false);
   const { items, addItem, updateQuantity } = useCartStore();
+  const { requireAuth } = useRequireAuth();
   const cartItem = items.find((i) => i.product.id === product.id);
   const quantity = cartItem?.quantity ?? 0;
 
   const discount = product.originalPrice
     ? Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)
     : 0;
+
+  const handleAddItem = () => {
+    if (requireAuth()) addItem(product);
+  };
 
   return (
     <div className="card group relative flex flex-col h-full overflow-hidden">
@@ -89,7 +95,7 @@ export function ProductCard({ product, onViewDetails }: ProductCardProps) {
               </button>
               <span className="text-white font-bold text-sm min-w-[16px] text-center">{quantity}</span>
               <button
-                onClick={() => addItem(product)}
+                onClick={handleAddItem}
                 className="w-5 h-5 flex items-center justify-center text-white hover:bg-primary-400 rounded-lg transition-colors"
               >
                 <Plus size={12} />
@@ -97,7 +103,7 @@ export function ProductCard({ product, onViewDetails }: ProductCardProps) {
             </div>
           ) : (
             <button
-              onClick={() => addItem(product)}
+              onClick={handleAddItem}
               disabled={!product.inStock}
               className="w-8 h-8 bg-primary-500 hover:bg-primary-600 disabled:bg-gray-200 text-white rounded-xl flex items-center justify-center transition-colors shadow-sm hover:shadow-md"
             >

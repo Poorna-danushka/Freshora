@@ -6,12 +6,15 @@ interface RegisterPayload { firstName: string; lastName: string; email: string; 
 interface StaffAccountPayload extends RegisterPayload {
   role: Exclude<NonNullable<User['role']>, 'CUSTOMER'>;
 }
-interface BackendUser {
+export interface BackendUser {
   id: string | number;
   firstName: string;
   lastName: string;
   email: string;
-  role: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DELIVERY_RIDER' | 'ADMIN';
+  phone?: string;
+  profileImageUrl?: string;
+  accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
+  role: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN';
 }
 interface AuthResponse { message: string; user: BackendUser; }
 
@@ -21,8 +24,8 @@ export const getDashboardPath = (role: User['role']) => {
       return '/store-manager-dashboard';
     case 'STORE_STAFF':
       return '/store-staff-dashboard';
-    case 'DELIVERY_RIDER':
-      return '/delivery-rider-dashboard';
+    case 'DRIVER':
+      return '/driver-dashboard';
     case 'ADMIN':
       return '/admin-dashboard';
     case 'CUSTOMER':
@@ -31,12 +34,26 @@ export const getDashboardPath = (role: User['role']) => {
   }
 };
 
+export const getPostAuthPath = (
+  role: User['role'],
+  from?: { pathname: string; search?: string; hash?: string } | null,
+) => {
+  const isCustomer = !role || role === 'CUSTOMER';
+  if (from && isCustomer) {
+    return `${from.pathname}${from.search ?? ''}${from.hash ?? ''}`;
+  }
+  return getDashboardPath(role);
+};
+
 const normalizeUser = (user: BackendUser): User => ({
   id: String(user.id),
-  name: `${user.firstName} ${user.lastName}`.trim() || user.email,
+  name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email,
   firstName: user.firstName,
   lastName: user.lastName,
   email: user.email,
+  phone: user.phone,
+  avatar: user.profileImageUrl,
+  accountStatus: user.accountStatus,
   role: user.role,
 });
 
@@ -67,6 +84,11 @@ export const authApi = {
     return normalizeUser(res.data);
   },
 
+  listUsers: async (): Promise<User[]> => {
+    const res = await apiClient.get<BackendUser[]>('/admin/users');
+    return res.data.map(normalizeUser);
+  },
+
   logout: async (): Promise<void> => {
     try {
       await apiClient.post('/auth/logout');
@@ -76,8 +98,12 @@ export const authApi = {
   },
 
   getMe: async (): Promise<User> => {
-    const res = await apiClient.get<BackendUser>('/auth/me');
+    const res = await apiClient.get<BackendUser>('/users/me');
     return normalizeUser(res.data);
+  },
+
+  changePassword: async (payload: { currentPassword: string; newPassword: string }): Promise<void> => {
+    await apiClient.post('/auth/change-password', payload);
   },
 
   forgotPassword: async (email: string): Promise<void> => {

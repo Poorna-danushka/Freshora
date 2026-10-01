@@ -28,7 +28,7 @@ export function Footer() {
 
       {/* Main footer */}
       <div className="container-app py-12">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8">
           {/* Brand */}
           <div className="col-span-2">
             <div className="flex items-center gap-2 mb-4">
@@ -66,6 +66,16 @@ export function Footer() {
               {['FAQs', 'Shipping & Delivery', 'Returns & Refunds', 'Track My Order', 'Contact Us'].map((item) => (
                 <li key={item}><a href="#" className="text-sm hover:text-primary-400 transition-colors">{item}</a></li>
               ))}
+            </ul>
+          </div>
+
+          {/* Partners */}
+          <div>
+            <h4 className="text-white font-semibold mb-4">Partners</h4>
+            <ul className="space-y-2.5">
+              <li><Link to="/join" className="text-sm hover:text-primary-400 transition-colors">Join Freshora</Link></li>
+              <li><Link to="/join/store" className="text-sm hover:text-primary-400 transition-colors">Become a store partner</Link></li>
+              <li><Link to="/join/driver" className="text-sm hover:text-primary-400 transition-colors">Become a delivery driver</Link></li>
             </ul>
           </div>
 
