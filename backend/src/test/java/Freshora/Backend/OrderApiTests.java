@@ -27,6 +27,11 @@ import tools.jackson.databind.json.JsonMapper;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.*;
@@ -135,6 +140,48 @@ class OrderApiTests {
         assertThat(orderEventRepository.countByOrder_Id(createdId)).isEqualTo(1);
         assertThat(outboxEventRepository.countByAggregateId(createdId)).isEqualTo(1);
         verify(catalogPort, times(1)).quote(eq(STORE_ID), anyList(), isNull());
+    }
+
+    @Test
+    void tenConcurrentIdenticalRequestsCreateOneOrderAndReplayIt() throws Exception {
+        int requestCount = 10;
+        CountDownLatch start = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(requestCount);
+        try {
+            List<Future<String>> responses = new java.util.ArrayList<>();
+            for (int attempt = 0; attempt < requestCount; attempt++) {
+                responses.add(executor.submit(() -> {
+                    start.await(10, TimeUnit.SECONDS);
+                    return mockMvc.perform(post("/api/v1/orders")
+                                    .with(user(customer))
+                                    .with(csrf())
+                                    .header("Idempotency-Key", "concurrent-same-request")
+                                    .contentType(MediaType.APPLICATION_JSON)
+                                    .content(requestJson))
+                            .andExpect(status().isCreated())
+                            .andReturn()
+                            .getResponse()
+                            .getContentAsString();
+                }));
+            }
+            start.countDown();
+
+            List<String> responseBodies = new java.util.ArrayList<>();
+            for (Future<String> response : responses) {
+                responseBodies.add(response.get(20, TimeUnit.SECONDS));
+            }
+            UUID orderId = UUID.fromString(objectMapper.readTree(responseBodies.get(0)).get("id").asString());
+            for (String responseBody : responseBodies) {
+                assertThat(objectMapper.readTree(responseBody).get("id").asString()).isEqualTo(orderId.toString());
+            }
+            assertThat(orderRepository.countByCustomer_Id(customer.getId())).isEqualTo(1);
+            assertThat(orderItemRepository.countByOrder_Id(orderId)).isEqualTo(1);
+            assertThat(idempotencyRecordRepository.countByUser_Id(customer.getId())).isEqualTo(1);
+            assertThat(orderEventRepository.countByOrder_Id(orderId)).isEqualTo(1);
+            assertThat(outboxEventRepository.countByAggregateId(orderId)).isEqualTo(1);
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

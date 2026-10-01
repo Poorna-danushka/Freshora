@@ -21,6 +21,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
@@ -46,6 +47,9 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.reset;
 
 @SpringBootTest
 @ActiveProfiles("test")
@@ -62,6 +66,8 @@ class OrderLifecycleApiTests {
     private OrderEventRepository orderEventRepository;
     @Autowired
     private OutboxEventRepository outboxEventRepository;
+    @MockitoSpyBean
+    private OutboxEventRepository outboxEventRepositorySpy;
 
     private MockMvc mockMvc;
     private User customer;
@@ -73,6 +79,7 @@ class OrderLifecycleApiTests {
         mockMvc = MockMvcBuilders.webAppContextSetup(context)
                 .apply(SecurityMockMvcConfigurers.springSecurity())
                 .build();
+        reset(outboxEventRepositorySpy);
         customer = saveUser(Role.CUSTOMER);
         admin = saveUser(Role.ADMIN);
         address = addressRepository.save(Address.builder()
@@ -153,9 +160,10 @@ class OrderLifecycleApiTests {
         assertThat(outboxEventRepository.countByAggregateId(order.getId())).isEqualTo(1);
     }
 
-    @Test
-    void customerCannotCancelOncePackingHasStarted() throws Exception {
-        Order order = saveOrder(OrderStatus.PACKING, 1);
+    @ParameterizedTest
+    @MethodSource("nonCancellableStatuses")
+    void customerCannotCancelOutsideConfiguredStatuses(OrderStatus status) throws Exception {
+        Order order = saveOrder(status, 1);
         mockMvc.perform(post("/api/v1/orders/{id}/cancel", order.getId())
                         .with(user(customer))
                         .with(csrf())
@@ -166,7 +174,7 @@ class OrderLifecycleApiTests {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ORDER_CANCELLATION_NOT_ALLOWED"))
                 .andExpect(jsonPath("$.requestId").isNotEmpty());
-        assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.PACKING);
+        assertThat(orderRepository.findById(order.getId()).orElseThrow().getStatus()).isEqualTo(status);
     }
 
     @Test
@@ -181,6 +189,26 @@ class OrderLifecycleApiTests {
                                 """))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("ORDER_VERSION_CONFLICT"));
+    }
+
+    @Test
+    void outboxFailureRollsBackOrderStatusAndOrderEvent() throws Exception {
+        Order order = saveOrder(OrderStatus.CREATED, 1);
+        doThrow(new IllegalStateException("simulated outbox failure"))
+                .when(outboxEventRepositorySpy).save(any());
+
+        mockMvc.perform(patch("/api/v1/orders/{id}/status", order.getId())
+                        .with(user(admin))
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(transitionBody(OrderStatus.PAYMENT_PENDING, 1)))
+                .andExpect(status().isInternalServerError());
+
+        Order unchanged = orderRepository.findById(order.getId()).orElseThrow();
+        assertThat(unchanged.getStatus()).isEqualTo(OrderStatus.CREATED);
+        assertThat(unchanged.getVersion()).isEqualTo(1);
+        assertThat(orderEventRepository.countByOrder_Id(order.getId())).isZero();
+        assertThat(outboxEventRepository.countByAggregateId(order.getId())).isZero();
     }
 
     @Test
@@ -343,5 +371,13 @@ class OrderLifecycleApiTests {
                 arguments(OrderStatus.PAYMENT_PENDING),
                 arguments(OrderStatus.CONFIRMED)
         );
+    }
+
+    private static Stream<Arguments> nonCancellableStatuses() {
+        return Stream.of(OrderStatus.values())
+                .filter(status -> status != OrderStatus.CREATED
+                        && status != OrderStatus.PAYMENT_PENDING
+                        && status != OrderStatus.CONFIRMED)
+                .map(Arguments::of);
     }
 }
