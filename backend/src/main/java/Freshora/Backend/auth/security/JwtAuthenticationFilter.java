@@ -3,6 +3,7 @@ package Freshora.Backend.auth.security;
 import Freshora.Backend.config.CookieProperties;
 import Freshora.Backend.user.entity.User;
 import Freshora.Backend.user.repository.UserRepository;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -51,7 +52,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         SecurityContextHolder.getContext().setAuthentication(authentication);
                     }
                 }
-            } catch (Exception ex) {
+            } catch (JwtException | IllegalArgumentException ex) {
                 SecurityContextHolder.clearContext();
             }
         }

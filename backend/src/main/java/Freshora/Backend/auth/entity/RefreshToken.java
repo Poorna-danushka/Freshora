@@ -14,10 +14,8 @@ import java.time.Instant;
 @Entity
 @Table(
         name = "refresh_tokens",
-        indexes = {
-                @Index(name = "idx_refresh_token_user", columnList = "user_id"),
-                @Index(name = "idx_refresh_token_token_id", columnList = "tokenId", unique = true)
-        }
+        indexes = @Index(name = "idx_refresh_token_user", columnList = "user_id"),
+        uniqueConstraints = @UniqueConstraint(name = "uk_refresh_token_token_id", columnNames = "token_id")
 )
 @Getter
 @Setter
@@ -34,7 +32,7 @@ public class RefreshToken {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "token_id", nullable = false)
     private String tokenId;
 
     @Column(nullable = false)

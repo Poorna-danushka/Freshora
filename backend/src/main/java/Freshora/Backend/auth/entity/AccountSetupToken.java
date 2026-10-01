@@ -8,7 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import java.time.Instant;
 
 @Entity
-@Table(name = "account_setup_tokens")
+@Table(name = "account_setup_tokens",
+        indexes = @Index(name = "idx_account_setup_tokens_user", columnList = "user_id"))
 @Getter
 @Setter
 @NoArgsConstructor
