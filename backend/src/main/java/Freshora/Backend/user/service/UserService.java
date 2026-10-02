@@ -78,6 +78,7 @@ public class UserService {
                 user.getPhone(),
                 user.getProfileImageUrl(),
                 user.getStatus().name(),
+                user.getPrimaryRole(),
                 roles.stream().map(r -> r.name()).collect(Collectors.toSet()),
                 dashboard.primaryDashboard(),
                 dashboard.availableDashboards()

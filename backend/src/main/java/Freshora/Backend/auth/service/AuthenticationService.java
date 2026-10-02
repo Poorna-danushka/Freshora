@@ -196,6 +196,8 @@ public class AuthenticationService {
         user.setPassword(passwordEncoder.encode(newPassword));
         userRepository.save(user);
 
+        tokenService.revokeUserTokens(user);
+
         resetToken.setRevokedAt(Instant.now());
         authTokenRepository.save(resetToken);
 

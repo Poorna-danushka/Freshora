@@ -6,17 +6,46 @@ interface RegisterPayload { firstName: string; lastName: string; email: string; 
 interface StaffAccountPayload extends RegisterPayload {
   role: Exclude<NonNullable<User['role']>, 'CUSTOMER'>;
 }
+type BackendRole = NonNullable<User['role']>;
+
 export interface BackendUser {
   id: string | number;
-  firstName: string;
-  lastName: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   phone?: string;
   profileImageUrl?: string;
+  status?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
   accountStatus?: 'PENDING' | 'ACTIVE' | 'DISABLED' | 'SUSPENDED';
-  role: 'CUSTOMER' | 'STORE_MANAGER' | 'STORE_STAFF' | 'DRIVER' | 'ADMIN';
+  role?: BackendRole;
+  roles?: BackendRole[];
+  primaryDashboard?: string;
+  availableDashboards?: string[];
 }
 interface AuthResponse { message: string; user: BackendUser; }
+
+const rolePriority: BackendRole[] = [
+  'ADMIN',
+  'STORE_MANAGER',
+  'DRIVER',
+  'STORE_STAFF',
+  'CUSTOMER',
+];
+
+const dashboardRole: Record<string, BackendRole> = {
+  '/admin-dashboard': 'ADMIN',
+  '/store-manager-dashboard': 'STORE_MANAGER',
+  '/driver-dashboard': 'DRIVER',
+  '/store-staff-dashboard': 'STORE_STAFF',
+  '/user-dashboard': 'CUSTOMER',
+};
+
+const getPrimaryRole = (user: BackendUser): BackendRole =>
+  dashboardRole[user.primaryDashboard ?? ''] ??
+  rolePriority.find((role) => user.roles?.includes(role)) ??
+  user.role ??
+  'CUSTOMER';
 
 export const getDashboardPath = (role: User['role']) => {
   switch (role) {
@@ -45,17 +74,23 @@ export const getPostAuthPath = (
   return getDashboardPath(role);
 };
 
-const normalizeUser = (user: BackendUser): User => ({
-  id: String(user.id),
-  name: `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim() || user.email,
-  firstName: user.firstName,
-  lastName: user.lastName,
-  email: user.email,
-  phone: user.phone,
-  avatar: user.profileImageUrl,
-  accountStatus: user.accountStatus,
-  role: user.role,
-});
+const normalizeUser = (user: BackendUser): User => {
+  const [nameFirst = '', ...nameRest] = (user.name ?? '').trim().split(/\s+/);
+  const firstName = user.firstName ?? nameFirst;
+  const lastName = user.lastName ?? nameRest.join(' ');
+
+  return {
+    id: String(user.id),
+    name: user.name?.trim() || `${firstName} ${lastName}`.trim() || user.email,
+    firstName,
+    lastName,
+    email: user.email,
+    phone: user.phone,
+    avatar: user.profileImageUrl,
+    accountStatus: user.accountStatus ?? user.status,
+    role: getPrimaryRole(user),
+  };
+};
 
 const ensureCsrf = async () => {
   try {
