@@ -289,6 +289,15 @@ docker compose up -d
 # Backend supports hot reload with devtools
 # Frontend requires rebuild after code changes
 ```
+For local HTTP development, set `FRESHORA_COOKIE_SECURE=false` in `.env`.
+Keep it `true` when deploying behind HTTPS.
+
+### Database schema changes
+Flyway creates a new database from `V1__freshora_baseline.sql`. Once applied,
+do not edit or remove that baseline; make future schema changes in a new
+versioned migration such as `V2__add_product_attribute.sql`. This baseline is
+for fresh databases. Existing databases created with the previous migration
+set require a separate migration plan and must not be pointed at this baseline.
 
 ### Production
 For production deployment:

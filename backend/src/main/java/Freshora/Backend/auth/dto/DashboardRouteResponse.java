@@ -22,21 +22,20 @@ public record DashboardRouteResponse(
     }
 
     private static String determinePrimaryDashboard(Set<Role> roles) {
-        // Priority order: ADMIN > STORE_MANAGER > DRIVER > STORE_STAFF > CUSTOMER
-        if (roles.contains(Role.ADMIN)) return "/admin/dashboard";
-        if (roles.contains(Role.STORE_MANAGER)) return "/store/dashboard";
-        if (roles.contains(Role.DRIVER)) return "/driver/dashboard";
-        if (roles.contains(Role.STORE_STAFF)) return "/staff/dashboard";
-        return "/customer/dashboard";
+        if (roles.contains(Role.ADMIN)) return "/admin-dashboard";
+        if (roles.contains(Role.STORE_MANAGER)) return "/store-manager-dashboard";
+        if (roles.contains(Role.DRIVER)) return "/driver-dashboard";
+        if (roles.contains(Role.STORE_STAFF)) return "/store-staff-dashboard";
+        return "/user-dashboard";
     }
 
     private static String getDashboardForRole(Role role) {
         return switch (role) {
-            case ADMIN -> "/admin/dashboard";
-            case STORE_MANAGER -> "/store/dashboard";
-            case STORE_STAFF -> "/staff/dashboard";
-            case DRIVER -> "/driver/dashboard";
-            case CUSTOMER -> "/customer/dashboard";
+            case ADMIN -> "/admin-dashboard";
+            case STORE_MANAGER -> "/store-manager-dashboard";
+            case STORE_STAFF -> "/store-staff-dashboard";
+            case DRIVER -> "/driver-dashboard";
+            case CUSTOMER -> "/user-dashboard";
         };
     }
 }

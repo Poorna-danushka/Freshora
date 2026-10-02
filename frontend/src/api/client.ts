@@ -138,11 +138,7 @@ apiClient.interceptors.response.use(
 
       try {
         // Attempt token refresh — refresh cookie is sent automatically
-        await axios.post(
-          `${API_BASE_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
+        await apiClient.post('/auth/refresh', {});
 
         processQueue(null);
         return apiClient(originalRequest);

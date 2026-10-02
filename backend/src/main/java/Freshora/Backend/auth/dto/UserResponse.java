@@ -1,5 +1,7 @@
 package Freshora.Backend.auth.dto;
 
+import Freshora.Backend.user.entity.Role;
+
 import java.util.Set;
 import java.util.UUID;
 
@@ -13,6 +15,7 @@ public record UserResponse(
         String phone,
         String profileImageUrl,
         String status,
+        Role role,
         Set<String> roles,
         String primaryDashboard,
         Set<String> availableDashboards
@@ -25,6 +28,7 @@ public record UserResponse(
                 null,
                 null,
                 "ACTIVE",
+                role == null ? Role.CUSTOMER : role,
                 role == null ? Set.of("CUSTOMER") : Set.of(role.name()),
                 null,
                 null
@@ -39,6 +43,7 @@ public record UserResponse(
                 null,
                 null,
                 "ACTIVE",
+                role == null ? Role.CUSTOMER : role,
                 role == null ? Set.of("CUSTOMER") : Set.of(role.name()),
                 null,
                 null
@@ -59,13 +64,5 @@ public record UserResponse(
 
     public String accountStatus() {
         return status;
-    }
-
-    public Freshora.Backend.user.entity.Role role() {
-        if (roles == null || roles.isEmpty()) return Freshora.Backend.user.entity.Role.CUSTOMER;
-        return roles.stream()
-                .findFirst()
-                .map(Freshora.Backend.user.entity.Role::valueOf)
-                .orElse(Freshora.Backend.user.entity.Role.CUSTOMER);
     }
 }

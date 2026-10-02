@@ -1,13 +1,19 @@
 package Freshora.Backend;
 
+import Freshora.Backend.auth.dto.DashboardRouteResponse;
 import Freshora.Backend.auth.dto.ForgotPasswordRequest;
 import Freshora.Backend.auth.dto.LoginRequest;
 import Freshora.Backend.auth.dto.RegisterRequest;
+import Freshora.Backend.auth.dto.UserResponse;
+import Freshora.Backend.auth.entity.AuthToken;
+import Freshora.Backend.auth.entity.AuthTokenType;
+import Freshora.Backend.auth.repository.AuthTokenRepository;
 import Freshora.Backend.auth.service.AuthService;
 import Freshora.Backend.user.entity.AccountStatus;
 import Freshora.Backend.user.entity.Role;
 import Freshora.Backend.user.entity.User;
 import Freshora.Backend.user.repository.UserRepository;
+import Freshora.Backend.user.service.UserService;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +34,10 @@ import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
+import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -71,6 +80,12 @@ class BackendApplicationTests {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private UserService userService;
+
+    @Autowired
+    private AuthTokenRepository authTokenRepository;
 
     @Autowired
     private PasswordEncoder passwordEncoder;
@@ -118,14 +133,79 @@ class BackendApplicationTests {
 
         LoginRequest loginRequest = new LoginRequest("login@test.com", "StrongPassword123!");
 
-        mockMvc.perform(post("/api/auth/login")
+        var loginResult = mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginRequest)))
                 .andExpect(status().isOk())
                 .andExpect(cookie().exists("FRESHORA_ACCESS_TOKEN"))
                 .andExpect(cookie().exists("FRESHORA_REFRESH_TOKEN"))
-                .andExpect(jsonPath("$.message").value("Login successful"));
+                .andExpect(jsonPath("$.message").value("Login successful"))
+                .andReturn();
+
+        assertThat(loginResult.getResponse().getCookie("FRESHORA_ACCESS_TOKEN").isHttpOnly()).isTrue();
+        assertThat(loginResult.getResponse().getCookie("FRESHORA_REFRESH_TOKEN").isHttpOnly()).isTrue();
+    }
+
+    @Test
+    void login_shouldReturnAdminRoleAndMatchingDashboard() throws Exception {
+        User user = userRepository.save(User.builder()
+                .firstName("Route")
+                .lastName("Admin")
+                .email("role-routing-admin@test.com")
+                .password(passwordEncoder.encode("StrongPassword123!"))
+                .role(Role.ADMIN)
+                .enabled(true)
+                .status(AccountStatus.ACTIVE)
+                .build());
+        UserResponse userResponse = userService.getUserResponseById(user.getId());
+        assertThat(userResponse.roles()).containsExactly(Role.ADMIN.name());
+        assertThat(userResponse.role()).isEqualTo(Role.ADMIN);
+
+        mockMvc.perform(post("/api/auth/login")
+                        .with(csrf())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                new LoginRequest("role-routing-admin@test.com", "StrongPassword123!"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.name").value("Route Admin"))
+                .andExpect(jsonPath("$.user.status").value("ACTIVE"))
+                .andExpect(jsonPath("$.user.role").value("ADMIN"))
+                .andExpect(jsonPath("$.user.roles[0]").value("ADMIN"))
+                .andExpect(jsonPath("$.user.primaryDashboard").value("/admin-dashboard"));
+    }
+
+    @Test
+    void dashboardRoutes_shouldMatchFrontendRoutesAndRolePriority() {
+        assertThat(DashboardRouteResponse.from(Set.of(Role.ADMIN)).primaryDashboard()).isEqualTo("/admin-dashboard");
+        assertThat(DashboardRouteResponse.from(Set.of(Role.STORE_MANAGER)).primaryDashboard())
+                .isEqualTo("/store-manager-dashboard");
+        assertThat(DashboardRouteResponse.from(Set.of(Role.DRIVER)).primaryDashboard()).isEqualTo("/driver-dashboard");
+        assertThat(DashboardRouteResponse.from(Set.of(Role.STORE_STAFF)).primaryDashboard())
+                .isEqualTo("/store-staff-dashboard");
+        assertThat(DashboardRouteResponse.from(Set.of(Role.CUSTOMER)).primaryDashboard()).isEqualTo("/user-dashboard");
+        assertThat(DashboardRouteResponse.from(Set.of(Role.CUSTOMER, Role.ADMIN)).primaryDashboard())
+                .isEqualTo("/admin-dashboard");
+
+        UserResponse userResponse = new UserResponse(
+                UUID.randomUUID(),
+                "Admin User",
+                "admin@test.com",
+                null,
+                null,
+                "ACTIVE",
+                Role.ADMIN,
+                Set.of(Role.CUSTOMER.name(), Role.ADMIN.name()),
+                "/admin-dashboard",
+                Set.of("/user-dashboard", "/admin-dashboard")
+        );
+        assertThat(userResponse.role()).isEqualTo(Role.ADMIN);
+    }
+
+    @Test
+    void refreshEndpoint_shouldRequireCsrfToken() throws Exception {
+        mockMvc.perform(post("/api/auth/refresh"))
+                .andExpect(status().isForbidden());
     }
 
     @Test
@@ -206,8 +286,17 @@ class BackendApplicationTests {
                 .build());
 
         String token = authService.createPasswordResetToken(user);
+        authTokenRepository.save(AuthToken.builder()
+                .user(user)
+                .tokenHash("refresh-token-hash-" + UUID.randomUUID())
+                .type(AuthTokenType.REFRESH)
+                .expiresAt(Instant.now().plusSeconds(3600))
+                .build());
+        assertThat(authTokenRepository.findByUserAndType(user, AuthTokenType.REFRESH)).hasSize(1);
+
         assertThat(authService.resetPassword(token, "NewPassword123!").message()).isEqualTo("Password reset successful");
         assertThat(userRepository.findByEmail("reset-password@test.com").orElseThrow().getPassword()).isNotEqualTo("existing-hash");
+        assertThat(authTokenRepository.findByUserAndType(user, AuthTokenType.REFRESH)).isEmpty();
     }
 
     @Test
