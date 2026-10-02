@@ -20,9 +20,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -60,7 +61,7 @@ public class UserProfileService {
         if (currentUser == null) {
             throw new AuthenticationException("Authentication required");
         }
-        return addressRepository.findByUserOrderByIsDefaultDescCreatedAtDesc(currentUser).stream()
+        return addressRepository.findByUserOrderByCreatedAtDesc(currentUser).stream()
                 .map(this::toAddressResponse)
                 .toList();
     }
@@ -71,78 +72,49 @@ public class UserProfileService {
             throw new AuthenticationException("Authentication required");
         }
 
-        boolean isDefault = Boolean.TRUE.equals(request.isDefault());
+        BigDecimal lat = request.latitude() != null ? BigDecimal.valueOf(request.latitude()) : BigDecimal.ZERO;
+        BigDecimal lon = request.longitude() != null ? BigDecimal.valueOf(request.longitude()) : BigDecimal.ZERO;
+
         Address address = Address.builder()
                 .user(currentUser)
-                .label(request.label().trim())
-                .recipientName(request.recipientName().trim())
-                .phone(request.phone().trim())
-                .addressLine1(request.addressLine1().trim())
-                .addressLine2(request.addressLine2() == null ? null : request.addressLine2().trim())
+                .line1(request.addressLine1().trim())
                 .city(request.city().trim())
-                .district(request.district().trim())
-                .postalCode(request.postalCode() == null ? null : request.postalCode().trim())
-                .latitude(request.latitude())
-                .longitude(request.longitude())
-                .isDefault(false)
+                .latitude(lat)
+                .longitude(lon)
                 .build();
 
-        if (isDefault || addressRepository.countByUser(currentUser) == 0) {
-            address.setDefault(true);
-        }
-
         Address saved = addressRepository.save(address);
-        if (address.isDefault()) {
-            setDefaultAddress(currentUser, saved.getId());
-        }
         return toAddressResponse(saved);
     }
 
     @Transactional
-    public AddressResponse updateAddress(User currentUser, Long id, UpdateAddressRequest request) {
+    public AddressResponse updateAddress(User currentUser, UUID id, UpdateAddressRequest request) {
         Address address = addressRepository.findByUserAndId(currentUser, id)
                 .orElseThrow(() -> new AuthenticationException("Address not found"));
 
-        address.setLabel(request.label().trim());
-        address.setRecipientName(request.recipientName().trim());
-        address.setPhone(request.phone().trim());
-        address.setAddressLine1(request.addressLine1().trim());
-        address.setAddressLine2(request.addressLine2() == null ? null : request.addressLine2().trim());
+        address.setLine1(request.addressLine1().trim());
         address.setCity(request.city().trim());
-        address.setDistrict(request.district().trim());
-        address.setPostalCode(request.postalCode() == null ? null : request.postalCode().trim());
-        address.setLatitude(request.latitude());
-        address.setLongitude(request.longitude());
+        if (request.latitude() != null) {
+            address.setLatitude(BigDecimal.valueOf(request.latitude()));
+        }
+        if (request.longitude() != null) {
+            address.setLongitude(BigDecimal.valueOf(request.longitude()));
+        }
         return toAddressResponse(addressRepository.save(address));
     }
 
     @Transactional
-    public void deleteAddress(User currentUser, Long id) {
+    public void deleteAddress(User currentUser, UUID id) {
         Address address = addressRepository.findByUserAndId(currentUser, id)
                 .orElseThrow(() -> new AuthenticationException("Address not found"));
 
-        boolean removedDefault = address.isDefault();
         addressRepository.delete(address);
-        if (removedDefault) {
-            addressRepository.findByUserOrderByIsDefaultDescCreatedAtDesc(currentUser).stream().findFirst()
-                    .ifPresent(first -> {
-                        first.setDefault(true);
-                        addressRepository.save(first);
-                    });
-        }
     }
 
     @Transactional
-    public AddressResponse setDefaultAddress(User currentUser, Long id) {
+    public AddressResponse setDefaultAddress(User currentUser, UUID id) {
         Address target = addressRepository.findByUserAndId(currentUser, id)
                 .orElseThrow(() -> new AuthenticationException("Address not found"));
-
-        addressRepository.findByUserOrderByIsDefaultDescCreatedAtDesc(currentUser)
-                .forEach(address -> {
-                    boolean isTarget = Objects.equals(address.getId(), target.getId());
-                    address.setDefault(isTarget);
-                    addressRepository.save(address);
-                });
 
         return toAddressResponse(target);
     }
@@ -183,7 +155,7 @@ public class UserProfileService {
                 driverApplication == null ? currentUser.getFirstName() + " " + currentUser.getLastName() : driverApplication.getFullName(),
                 driverApplication == null ? "PENDING" : driverApplication.getStatus().name(),
                 driverApplication == null ? null : driverApplication.getVehicleType(),
-                driverApplication == null ? null : driverApplication.getPreferredArea(),
+                driverApplication == null ? null : driverApplication.getPreferredAreas(),
                 currentUser.getRole().name()
         );
     }
@@ -209,7 +181,7 @@ public class UserProfileService {
                 address.getRecipientName(),
                 address.getPhone(),
                 address.getAddressLine1(),
-                address.getAddressLine2(),
+                null,
                 address.getCity(),
                 address.getDistrict(),
                 address.getPostalCode(),

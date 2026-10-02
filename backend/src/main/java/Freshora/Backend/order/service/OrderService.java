@@ -14,7 +14,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
@@ -101,10 +100,12 @@ public class OrderService {
             idempotencyRecordRepository.flush();
         }
 
-        BigDecimal subtotal = request.items().stream()
-                .map(item -> money(products.get(item.productId()).unitPrice())
-                        .multiply(BigDecimal.valueOf(item.quantity())))
-                .reduce(ZERO, BigDecimal::add);
+        BigDecimal subtotal = ZERO;
+        for (CreateOrderRequest.Item item : request.items()) {
+            BigDecimal lineTotal = money(products.get(item.productId()).unitPrice())
+                    .multiply(BigDecimal.valueOf(item.quantity()));
+            subtotal = subtotal.add(lineTotal);
+        }
         BigDecimal deliveryFee = money(quote.deliveryFee());
         BigDecimal discountAmount = money(quote.discountAmount());
         if (discountAmount.compareTo(subtotal) > 0) {

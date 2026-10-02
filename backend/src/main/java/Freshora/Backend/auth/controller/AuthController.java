@@ -3,6 +3,7 @@ package Freshora.Backend.auth.controller;
 import Freshora.Backend.auth.dto.AccountSetupRequest;
 import Freshora.Backend.auth.dto.AuthResponse;
 import Freshora.Backend.auth.dto.ChangePasswordRequest;
+import Freshora.Backend.auth.dto.DashboardRouteResponse;
 import Freshora.Backend.auth.dto.ForgotPasswordRequest;
 import Freshora.Backend.auth.dto.LoginRequest;
 import Freshora.Backend.auth.dto.MessageResponse;
@@ -79,6 +80,12 @@ public class AuthController {
     @GetMapping("/me")
     public UserResponse getCurrentUser(Authentication authentication) {
         return userService.getUserResponseByEmail(authentication.getName());
+    }
+
+    @GetMapping("/dashboard")
+    public DashboardRouteResponse getDashboardRoute(Authentication authentication) {
+        User user = userService.findByEmail(authentication.getName());
+        return DashboardRouteResponse.from(user.getRoleNames());
     }
 
     @GetMapping("/csrf")

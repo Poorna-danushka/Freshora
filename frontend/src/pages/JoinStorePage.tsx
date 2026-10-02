@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Loader2, LogIn } from 'lucide-react';
 import { applicationsApi } from '@/api/applications';
 import { parseApiError } from '@/api/client';
@@ -96,6 +96,8 @@ function Field({
 
 export function JoinStorePage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const applicationId = searchParams.get('applicationId') ?? undefined;
   const { user, isAuthenticated } = useAuthStore();
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<StoreFormState>(initial);
@@ -103,6 +105,51 @@ export function JoinStorePage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [requireLogin, setRequireLogin] = useState(false);
+  const [existingDocuments, setExistingDocuments] = useState<string[]>([]);
+  const [loadingApplication, setLoadingApplication] = useState(Boolean(applicationId));
+
+  useEffect(() => {
+    if (!applicationId) return;
+    let active = true;
+    applicationsApi.getStoreApplication(applicationId).then((application) => {
+      if (!active) return;
+      if (application.status !== 'MORE_INFORMATION_REQUIRED') {
+        setSubmitError('This application is not awaiting requested information.');
+        setLoadingApplication(false);
+        return;
+      }
+      setForm((previous) => ({
+        ...previous,
+        applicantName: application.applicantName,
+        email: application.email,
+        contactNumber: application.contactNumber,
+        alternateContactNumber: application.alternateContactNumber ?? '',
+        preferredContactMethod: application.preferredContactMethod,
+        applicantNotes: application.applicantNotes ?? '',
+        storeName: application.storeName,
+        storeContactNumber: application.storeContactNumber,
+        storeEmail: application.storeEmail ?? '',
+        storeAddress: application.storeAddress,
+        city: application.city,
+        province: application.province ?? '',
+        postalCode: application.postalCode ?? '',
+        storeType: application.storeType,
+        registrationNumber: application.registrationNumber ?? '',
+        storeDescription: application.storeDescription ?? '',
+        accurate: true,
+        contactConsent: true,
+        noGuarantee: true,
+      }));
+      setExistingDocuments(application.documents.map((document) => document.kind));
+      setLoadingApplication(false);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      const { message } = parseApiError(error);
+      setSubmitError(message || 'Could not load this application for updating.');
+      setLoadingApplication(false);
+    });
+    return () => { active = false; };
+  }, [applicationId]);
 
   useEffect(() => {
     if (user) {
@@ -142,12 +189,12 @@ export function JoinStorePage() {
       if (!form.storeAddress.trim()) next.storeAddress = 'Store address is required';
       if (!form.city.trim()) next.city = 'City / town is required';
       if (!form.storeType) next.storeType = 'Select a store type';
-      const logoError = validateUpload(form.logo, { required: true, accept: IMAGE_TYPES, label: 'Store logo' });
+      const logoError = validateUpload(form.logo, { required: !existingDocuments.includes('logo'), accept: IMAGE_TYPES, label: 'Store logo' });
       if (logoError) next.logo = logoError;
     }
     if (index === 2) {
-      const br = validateUpload(form.businessRegistration, { required: true, accept: DOCUMENT_TYPES, label: 'Business registration document' });
-      const id = validateUpload(form.identityDocument, { required: true, accept: DOCUMENT_TYPES, label: 'Applicant identity document' });
+      const br = validateUpload(form.businessRegistration, { required: !existingDocuments.includes('businessRegistration'), accept: DOCUMENT_TYPES, label: 'Business registration document' });
+      const id = validateUpload(form.identityDocument, { required: !existingDocuments.includes('identityDocument'), accept: DOCUMENT_TYPES, label: 'Applicant identity document' });
       const license = validateUpload(form.license, { required: false, accept: DOCUMENT_TYPES, label: 'License/certificate' });
       const address = validateUpload(form.addressProof, { required: false, accept: DOCUMENT_TYPES, label: 'Proof of store address' });
       const extra = validateUpload(form.supportingDocument, { required: false, accept: DOCUMENT_TYPES, label: 'Supporting document' });
@@ -171,7 +218,7 @@ export function JoinStorePage() {
   };
 
   const submit = async () => {
-    if (!validateStep(3) || !form.storeType || !form.logo) return;
+    if (!validateStep(3) || !form.storeType || (!form.logo && !existingDocuments.includes('logo'))) return;
 
     if (!isAuthenticated) {
       setSubmitError('You must be logged in to submit a store partner application. Please log in or create an account, then try submitting again.');
@@ -183,7 +230,8 @@ export function JoinStorePage() {
     setSubmitError('');
     setRequireLogin(false);
     try {
-      const files: Record<string, File> = { logo: form.logo };
+      const files: Record<string, File> = {};
+      if (form.logo) files.logo = form.logo;
       if (form.businessRegistration) files.businessRegistration = form.businessRegistration;
       if (form.identityDocument) files.identityDocument = form.identityDocument;
       if (form.license) files.license = form.license;
@@ -191,6 +239,7 @@ export function JoinStorePage() {
       if (form.supportingDocument) files.supportingDocument = form.supportingDocument;
 
       const result = await applicationsApi.submitStoreApplication({
+        applicationId,
         applicantName: form.applicantName.trim(),
         email: form.email.trim(),
         contactNumber: form.contactNumber.trim(),
@@ -217,7 +266,7 @@ export function JoinStorePage() {
         storeName: form.storeName.trim(),
         source: result.source,
       });
-      navigate('/join/store/success', { replace: true });
+      navigate(applicationId ? '/my-applications' : '/join/store/success', { replace: true });
     } catch (err) {
       const { status, message } = parseApiError(err);
       if (status === 401) {
@@ -232,6 +281,10 @@ export function JoinStorePage() {
       setSubmitting(false);
     }
   };
+
+  if (loadingApplication) {
+    return <div className="container-app py-12 text-gray-600">Loading your application…</div>;
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">

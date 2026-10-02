@@ -49,7 +49,7 @@ public class JwtService {
                 .subject(String.valueOf(user.getId()))
                 .id(jti)
                 .claim("email", user.getEmail())
-                .claim("role", user.getRole().name())
+                .claim("role", user.getPrimaryRole().name())
                 .claim("type", type)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusMillis(expirationMs)))

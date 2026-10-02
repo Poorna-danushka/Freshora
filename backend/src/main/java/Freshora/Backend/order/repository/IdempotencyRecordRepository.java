@@ -7,7 +7,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface IdempotencyRecordRepository extends JpaRepository<IdempotencyRecord, UUID> {
-    Optional<IdempotencyRecord> findByUser_IdAndIdemKeyAndOperation(Long userId, String idemKey, String operation);
+    Optional<IdempotencyRecord> findByUser_IdAndIdemKeyAndOperation(UUID userId, String idemKey, String operation);
 
-    long countByUser_Id(Long userId);
+    long countByUser_Id(UUID userId);
 }

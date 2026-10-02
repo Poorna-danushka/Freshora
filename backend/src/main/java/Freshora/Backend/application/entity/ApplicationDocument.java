@@ -11,9 +11,17 @@ import java.time.Instant;
         indexes = @Index(name = "idx_application_document_owner", columnList = "applicationType,applicationId"))
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class ApplicationDocument {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY) private Long id;
-    @Enumerated(EnumType.STRING) @Column(nullable = false) private ApplicationType applicationType;
-    @Column(nullable = false) private Long applicationId;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", updatable = false, nullable = false)
+    private java.util.UUID id;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "application_type", nullable = false)
+    private ApplicationType applicationType;
+
+    @Column(name = "application_id", nullable = false)
+    private java.util.UUID applicationId;
     @Column(nullable = false) private String documentType;
     @Column(nullable = false) private String originalFileName;
     @Column(nullable = false) private String storageKey;

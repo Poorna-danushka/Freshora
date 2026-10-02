@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api")
@@ -31,9 +32,9 @@ public class ApplicationDocumentController {
 
     @GetMapping("/admin/application-documents/{documentId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Resource> getDocument(Authentication authentication, @PathVariable Long documentId) throws IOException {
+    public ResponseEntity<Resource> getDocument(Authentication authentication, @PathVariable UUID documentId) throws IOException {
         User currentUser = (User) authentication.getPrincipal();
-        if (currentUser.getRole() != Role.ADMIN) {
+        if (!currentUser.hasRole(Role.ADMIN)) {
             throw new org.springframework.security.access.AccessDeniedException("Access denied");
         }
 

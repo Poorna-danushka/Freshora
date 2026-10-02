@@ -1,7 +1,9 @@
 package Freshora.Backend.user.dto;
 
+import java.util.UUID;
+
 public record UserProfileResponse(
-        Long id,
+        UUID id,
         String firstName,
         String lastName,
         String name,

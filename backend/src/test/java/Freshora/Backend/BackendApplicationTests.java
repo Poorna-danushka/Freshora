@@ -13,21 +13,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockMultipartHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.context.WebApplicationContext;
 import tools.jackson.databind.JsonNode;
+import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
+
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -314,7 +321,7 @@ class BackendApplicationTests {
 
         String responseBody = createdResponse.getResponse().getContentAsString();
         JsonNode createdAddress = objectMapper.readTree(responseBody);
-        long addressId = createdAddress.get("id").asLong();
+        String addressId = createdAddress.get("id").asString();
 
         var ownerBLogin = mockMvc.perform(post("/api/auth/login")
                         .with(csrf())
@@ -577,6 +584,165 @@ class BackendApplicationTests {
     }
 
     @Test
+    void applicationSubmission_requiresAllMandatoryDocuments() throws Exception {
+        registerUser("missing-documents@test.com", "StrongPassword123!");
+        Cookie[] cookies = loginAndGetCookies("missing-documents@test.com", "StrongPassword123!");
+        String storePayload = """
+                {
+                  "applicantName": "Missing Documents",
+                  "email": "missing-documents@test.com",
+                  "contactNumber": "+94112345678",
+                  "preferredContactMethod": "email",
+                  "storeName": "Missing Documents Store",
+                  "storeContactNumber": "+94112345678",
+                  "storeAddress": "123 Test St",
+                  "city": "Colombo",
+                  "storeType": "GROCERY"
+                }
+                """;
+        String driverPayload = """
+                {
+                  "fullName": "Missing Documents",
+                  "email": "missing-documents@test.com",
+                  "contactNumber": "+94112345678",
+                  "dateOfBirth": "1990-01-01",
+                  "address": "123 Main St",
+                  "city": "Colombo",
+                  "vehicleType": "MOTORBIKE",
+                  "vehicleRegistrationNumber": "ABC-1234",
+                  "ownershipType": "OWN",
+                  "preferredArea": "Colombo",
+                  "hasSmartphone": true
+                }
+                """;
+
+        mockMvc.perform(storeApplicationMultipart(storePayload, "/api/applications/stores", false)
+                        .with(csrf())
+                        .cookie(cookies))
+                .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                                "Required application document is missing")));
+        mockMvc.perform(driverApplicationMultipart(driverPayload, "/api/applications/drivers", false)
+                        .with(csrf())
+                        .cookie(cookies))
+                .andExpect(status().isBadRequest())
+                        .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString(
+                                "Required application document is missing")));
+    }
+
+    @Test
+    void storeApplicant_canResubmitAfterMoreInformationRequest() throws Exception {
+        registerUser("store-resubmit@test.com", "StrongPassword123!");
+        Cookie[] applicantCookies = loginAndGetCookies("store-resubmit@test.com", "StrongPassword123!");
+        String payload = """
+                {
+                  "applicantName": "Store Resubmit",
+                  "email": "store-resubmit@test.com",
+                  "contactNumber": "+94112345678",
+                  "preferredContactMethod": "email",
+                  "storeName": "Original Store Name",
+                  "storeContactNumber": "+94112345678",
+                  "storeAddress": "123 Test St",
+                  "city": "Colombo",
+                  "storeType": "GROCERY"
+                }
+                """;
+        var submitted = mockMvc.perform(storeApplicationMultipart(payload)
+                        .with(csrf())
+                        .cookie(applicantCookies))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String applicationId = objectMapper.readTree(submitted.getResponse().getContentAsString()).get("id").asString();
+
+        Cookie[] adminCookies = loginAndGetCookies("admin@freshora.test", "FreshoraAdmin123!");
+        mockMvc.perform(post("/api/admin/store-applications/{id}/request-information", applicationId)
+                        .with(csrf())
+                        .cookie(adminCookies)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\":\"Please provide a clearer registration document\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(multipart(HttpMethod.PUT, "/api/applications/stores/{id}", applicationId)
+                        .param("applicantName", "Store Resubmit")
+                        .param("email", "store-resubmit@test.com")
+                        .param("contactNumber", "+94112345678")
+                        .param("preferredContactMethod", "email")
+                        .param("storeName", "Updated Store Name")
+                        .param("storeContactNumber", "+94112345678")
+                        .param("storeAddress", "123 Test St")
+                        .param("city", "Colombo")
+                        .param("storeType", "GROCERY")
+                        .with(csrf())
+                        .cookie(applicantCookies))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_REVIEW"))
+                .andExpect(jsonPath("$.storeName").value("Updated Store Name"))
+                .andExpect(jsonPath("$.reviewNotes").doesNotExist())
+                .andExpect(jsonPath("$.history.length()").value(3));
+
+        mockMvc.perform(get("/api/applications/stores/{id}", applicationId).cookie(applicantCookies))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.documents.length()").value(3));
+    }
+
+    @Test
+    void driverApplicant_canResubmitAfterMoreInformationRequest() throws Exception {
+        registerUser("driver-resubmit@test.com", "StrongPassword123!");
+        Cookie[] applicantCookies = loginAndGetCookies("driver-resubmit@test.com", "StrongPassword123!");
+        String payload = """
+                {
+                  "fullName": "Driver Resubmit",
+                  "email": "driver-resubmit@test.com",
+                  "contactNumber": "+94112345678",
+                  "dateOfBirth": "1990-01-01",
+                  "address": "123 Main St",
+                  "city": "Colombo",
+                  "vehicleType": "MOTORBIKE",
+                  "vehicleRegistrationNumber": "RES-1234",
+                  "ownershipType": "OWN",
+                  "preferredArea": "Colombo",
+                  "hasSmartphone": true
+                }
+                """;
+        var submitted = mockMvc.perform(driverApplicationMultipart(payload)
+                        .with(csrf())
+                        .cookie(applicantCookies))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String applicationId = objectMapper.readTree(submitted.getResponse().getContentAsString()).get("id").asString();
+
+        Cookie[] adminCookies = loginAndGetCookies("admin@freshora.test", "FreshoraAdmin123!");
+        mockMvc.perform(post("/api/admin/driver-applications/{id}/request-information", applicationId)
+                        .with(csrf())
+                        .cookie(adminCookies)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"note\":\"Please verify the vehicle registration details\"}"))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(multipart(HttpMethod.PUT, "/api/applications/drivers/{id}", applicationId)
+                        .param("fullName", "Driver Resubmit")
+                        .param("email", "driver-resubmit@test.com")
+                        .param("contactNumber", "+94112345678")
+                        .param("dateOfBirth", "1990-01-01")
+                        .param("address", "123 Main St")
+                        .param("city", "Colombo")
+                        .param("vehicleType", "MOTORBIKE")
+                        .param("vehicleRegistrationNumber", "RES-1234")
+                        .param("ownershipType", "OWN")
+                        .param("preferredArea", "Colombo")
+                        .param("hasSmartphone", "true")
+                        .with(csrf())
+                        .cookie(applicantCookies))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PENDING_REVIEW"))
+                .andExpect(jsonPath("$.history.length()").value(3));
+
+        mockMvc.perform(get("/api/applications/drivers/{id}", applicationId).cookie(applicantCookies))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.documents.length()").value(4));
+    }
+
+    @Test
     void storeApplication_statusIsAlwaysPendingReview_regardlessOfClientField() throws Exception {
         // An authenticated customer submits a store application.
         // The backend must always set status=PENDING_REVIEW, ignoring any status field in request.
@@ -600,17 +766,15 @@ class BackendApplicationTests {
                 }
                 """;
 
-        var result = mockMvc.perform(post("/api/applications/stores")
+        var result = mockMvc.perform(storeApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(cookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(cookies))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode response = objectMapper.readTree(result.getResponse().getContentAsString());
         // Status must always be PENDING_REVIEW — never the client-sent value
-        assertThat(response.get("status").asText()).isEqualTo("PENDING_REVIEW");
+        assertThat(response.get("status").asString()).isEqualTo("PENDING_REVIEW");
     }
 
     // ──────────────────────────────────────────────────────────
@@ -639,16 +803,14 @@ class BackendApplicationTests {
                 }
                 """;
 
-        var submitResult = mockMvc.perform(post("/api/applications/stores")
+        var submitResult = mockMvc.perform(storeApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(userACookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(userACookies))
                 .andExpect(status().isCreated())
                 .andReturn();
 
         JsonNode submitted = objectMapper.readTree(submitResult.getResponse().getContentAsString());
-        String applicationId = submitted.get("id").asText();
+        String applicationId = submitted.get("id").asString();
 
         // User B tries to access User A's application by ID
         Cookie[] userBCookies = loginAndGetCookies("idor-user-b@test.com", "StrongPassword123!");
@@ -675,15 +837,13 @@ class BackendApplicationTests {
                 }
                 """;
 
-        var submitResult = mockMvc.perform(post("/api/applications/stores")
+        var submitResult = mockMvc.perform(storeApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(cookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(cookies))
                 .andExpect(status().isCreated())
                 .andReturn();
 
-        String applicationId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asText();
+        String applicationId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asString();
 
         // Owner can access their own application
         mockMvc.perform(get("/api/applications/stores/{id}", applicationId).cookie(cookies))
@@ -714,14 +874,12 @@ class BackendApplicationTests {
                   "storeType": "GROCERY"
                 }
                 """;
-        var submitResult = mockMvc.perform(post("/api/applications/stores")
+        var submitResult = mockMvc.perform(storeApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(applicantCookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(applicantCookies))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asText();
+        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asString();
 
         // A different regular customer tries to approve this application
         registerUser("fake-reviewer@test.com", "StrongPassword123!");
@@ -751,14 +909,12 @@ class BackendApplicationTests {
                   "storeType": "GROCERY"
                 }
                 """;
-        var submitResult = mockMvc.perform(post("/api/applications/stores")
+        var submitResult = mockMvc.perform(storeApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(applicantCookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(applicantCookies))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asText();
+        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asString();
 
         Cookie[] adminCookies = loginAndGetCookies("admin@freshora.test", "FreshoraAdmin123!");
         mockMvc.perform(post("/api/admin/store-applications/{id}/approve", appId)
@@ -766,6 +922,50 @@ class BackendApplicationTests {
                         .cookie(adminCookies))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").exists());
+
+        User provisionedUser = userRepository.findByEmail("applicant-for-approval@test.com").orElseThrow();
+        assertThat(provisionedUser.getRole()).isEqualTo(Role.STORE_MANAGER);
+        assertThat(provisionedUser.getStatus()).isEqualTo(AccountStatus.PENDING);
+        assertThat(provisionedUser.isEnabled()).isFalse();
+    }
+
+    @Test
+    void admin_canApproveDriverApplication_andProvisionInactiveDriverAccount() throws Exception {
+        registerUser("driver-applicant-approval@test.com", "StrongPassword123!");
+        Cookie[] applicantCookies = loginAndGetCookies("driver-applicant-approval@test.com", "StrongPassword123!");
+        String payload = """
+                {
+                  "fullName": "Driver Approval",
+                  "email": "driver-applicant-approval@test.com",
+                  "contactNumber": "+94112345678",
+                  "dateOfBirth": "1990-01-01",
+                  "address": "123 Main St",
+                  "city": "Colombo",
+                  "vehicleType": "MOTORBIKE",
+                  "vehicleRegistrationNumber": "APR-1234",
+                  "ownershipType": "OWN",
+                  "preferredArea": "Colombo",
+                  "hasSmartphone": true
+                }
+                """;
+        var submitted = mockMvc.perform(driverApplicationMultipart(payload)
+                        .with(csrf())
+                        .cookie(applicantCookies))
+                .andExpect(status().isCreated())
+                .andReturn();
+        String applicationId = objectMapper.readTree(submitted.getResponse().getContentAsString()).get("id").asString();
+
+        Cookie[] adminCookies = loginAndGetCookies("admin@freshora.test", "FreshoraAdmin123!");
+        mockMvc.perform(post("/api/admin/driver-applications/{id}/approve", applicationId)
+                        .with(csrf())
+                        .cookie(adminCookies))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.message").exists());
+
+        User provisionedUser = userRepository.findByEmail("driver-applicant-approval@test.com").orElseThrow();
+        assertThat(provisionedUser.getRole()).isEqualTo(Role.DRIVER);
+        assertThat(provisionedUser.getStatus()).isEqualTo(AccountStatus.PENDING);
+        assertThat(provisionedUser.isEnabled()).isFalse();
     }
 
     @Test
@@ -788,14 +988,12 @@ class BackendApplicationTests {
                   "hasSmartphone": true
                 }
                 """;
-        var submitResult = mockMvc.perform(post("/api/applications/drivers")
+        var submitResult = mockMvc.perform(driverApplicationMultipart(payload)
                         .with(csrf())
-                        .cookie(applicantCookies)
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(payload))
+                        .cookie(applicantCookies))
                 .andExpect(status().isCreated())
                 .andReturn();
-        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asText();
+        String appId = objectMapper.readTree(submitResult.getResponse().getContentAsString()).get("id").asString();
 
         Cookie[] adminCookies = loginAndGetCookies("admin@freshora.test", "FreshoraAdmin123!");
         mockMvc.perform(post("/api/admin/driver-applications/{id}/reject", appId)
@@ -961,5 +1159,50 @@ class BackendApplicationTests {
                 .andExpect(status().isOk())
                 .andReturn();
         return loginResult.getResponse().getCookies();
+    }
+
+    private MockMultipartHttpServletRequestBuilder storeApplicationMultipart(String payload) throws Exception {
+        return storeApplicationMultipart(payload, "/api/applications/stores", true);
+    }
+
+    private MockMultipartHttpServletRequestBuilder storeApplicationMultipart(
+            String payload, String path, boolean includeDocuments) throws Exception {
+        MockMultipartHttpServletRequestBuilder request = multipart(path);
+        if (includeDocuments) {
+            request.file(new MockMultipartFile("logo", "logo.png", "image/png", new byte[]{1}))
+                    .file(new MockMultipartFile("businessRegistration", "registration.pdf", "application/pdf", new byte[]{1}))
+                    .file(new MockMultipartFile("identityDocument", "identity.pdf", "application/pdf", new byte[]{1}));
+        }
+        addMultipartFields(request, payload);
+        return request;
+    }
+
+    private MockMultipartHttpServletRequestBuilder driverApplicationMultipart(String payload) throws Exception {
+        return driverApplicationMultipart(payload, "/api/applications/drivers", true);
+    }
+
+    private MockMultipartHttpServletRequestBuilder driverApplicationMultipart(
+            String payload, String path, boolean includeDocuments) throws Exception {
+        MockMultipartHttpServletRequestBuilder request = multipart(path);
+        if (includeDocuments) {
+            request.file(new MockMultipartFile("photo", "photo.png", "image/png", new byte[]{1}))
+                    .file(new MockMultipartFile("vehicleRegistrationDoc", "registration.pdf", "application/pdf", new byte[]{1}))
+                    .file(new MockMultipartFile("identityDocument", "identity.pdf", "application/pdf", new byte[]{1}))
+                    .file(new MockMultipartFile("licenseFront", "license.pdf", "application/pdf", new byte[]{1}));
+        }
+        addMultipartFields(request, payload);
+        return request;
+    }
+
+    private void addMultipartFields(MockMultipartHttpServletRequestBuilder request, String payload) throws Exception {
+        Map<String, Object> fields = objectMapper.readValue(payload, new TypeReference<>() { });
+        fields.forEach((name, value) -> {
+            String parameter = value instanceof Iterable<?> values
+                    ? java.util.stream.StreamSupport.stream(values.spliterator(), false)
+                            .map(String::valueOf)
+                            .collect(java.util.stream.Collectors.joining(","))
+                    : String.valueOf(value);
+            request.param(name, parameter);
+        });
     }
 }

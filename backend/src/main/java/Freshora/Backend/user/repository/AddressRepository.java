@@ -7,11 +7,11 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
-public interface AddressRepository extends JpaRepository<Address, Long> {
-    List<Address> findByUserOrderByIsDefaultDescCreatedAtDesc(User user);
-    Optional<Address> findByUserAndId(User user, Long id);
-    Optional<Address> findByUserAndIsDefaultTrue(User user);
+public interface AddressRepository extends JpaRepository<Address, UUID> {
+    List<Address> findByUserOrderByCreatedAtDesc(User user);
+    Optional<Address> findByUserAndId(User user, UUID id);
     long countByUser(User user);
 }

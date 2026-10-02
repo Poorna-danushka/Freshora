@@ -42,21 +42,33 @@ public class SecurityConfig {
                         .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        // Public endpoints - no authentication required
                         .requestMatchers(HttpMethod.GET, "/api/auth/csrf").permitAll()
                         .requestMatchers(HttpMethod.POST,
-                                "/api/auth/register",
+                                // Authentication endpoints
                                 "/api/auth/login",
                                 "/api/auth/logout",
                                 "/api/auth/refresh",
                                 "/api/auth/forgot-password",
                                 "/api/auth/reset-password",
-                                "/api/auth/setup-account").permitAll()
+                                "/api/auth/setup-account",
+                                // Registration endpoints - all public
+                                "/api/auth/register/customer",
+                                "/api/auth/apply/store-partner",
+                                "/api/auth/apply/driver",
+                                // Legacy endpoint (keep for backward compatibility)
+                                "/api/auth/register").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/locations/**",
                                 "/api/stores/**",
                                 "/api/products/**").permitAll()
+                        // Authenticated endpoints
+                        .requestMatchers("/api/auth/me", "/api/auth/dashboard", "/api/auth/change-password").authenticated()
                         .requestMatchers("/api/auth/**").authenticated()
+                        // Admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        // All other requests require authentication
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new JsonAuthenticationEntryPoint())

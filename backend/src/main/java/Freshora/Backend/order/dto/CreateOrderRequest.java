@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public record CreateOrderRequest(
         @NotNull UUID storeId,
-        @NotNull Long addressId,
+        @NotNull UUID addressId,
         String couponCode,
         @NotNull PaymentMethod paymentMethod,
         @NotEmpty List<@Valid Item> items

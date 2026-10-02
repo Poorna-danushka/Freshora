@@ -26,5 +26,22 @@ public record DriverApplicationRequest(
         String deliveryExperience,
         boolean hasSmartphone,
         Boolean hasDeliveryBag,
-        String additionalNotes
-) {}
+        String additionalNotes,
+        String licenseNumber
+) {
+    public DriverApplicationRequest(
+            String fullName, String email, String contactNumber, String dateOfBirth,
+            String address, String city, String province, String emergencyContactName,
+            String emergencyContactNumber, String vehicleType, String vehicleRegistrationNumber,
+            String vehicleMake, String vehicleModel, String vehicleYear, String vehicleColor,
+            String ownershipType, String preferredArea, String preferredWorkingDays,
+            String preferredWorkingHours, String deliveryExperience, boolean hasSmartphone,
+            Boolean hasDeliveryBag, String additionalNotes
+    ) {
+        this(fullName, email, contactNumber, dateOfBirth, address, city, province,
+             emergencyContactName, emergencyContactNumber, vehicleType, vehicleRegistrationNumber,
+             vehicleMake, vehicleModel, vehicleYear, vehicleColor, ownershipType, preferredArea,
+             preferredWorkingDays, preferredWorkingHours, deliveryExperience, hasSmartphone,
+             hasDeliveryBag, additionalNotes, null);
+    }
+}

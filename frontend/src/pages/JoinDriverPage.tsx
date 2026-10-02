@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { applicationsApi } from '@/api/applications';
 import { parseApiError } from '@/api/client';
@@ -100,11 +100,66 @@ function Field({
 
 export function JoinDriverPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const applicationId = searchParams.get('applicationId') ?? undefined;
   const [step, setStep] = useState(0);
   const [form, setForm] = useState<DriverFormState>(initial);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [existingDocuments, setExistingDocuments] = useState<string[]>([]);
+  const [loadingApplication, setLoadingApplication] = useState(Boolean(applicationId));
+
+  useEffect(() => {
+    if (!applicationId) return;
+    let active = true;
+    applicationsApi.getDriverApplication(applicationId).then((application) => {
+      if (!active) return;
+      if (application.status !== 'MORE_INFORMATION_REQUIRED') {
+        setSubmitError('This application is not awaiting requested information.');
+        setLoadingApplication(false);
+        return;
+      }
+      setForm((previous) => ({
+        ...previous,
+        fullName: application.fullName,
+        email: application.email,
+        contactNumber: application.contactNumber,
+        dateOfBirth: application.dateOfBirth,
+        address: application.address,
+        city: application.city,
+        province: application.province ?? '',
+        emergencyContactName: application.emergencyContactName ?? '',
+        emergencyContactNumber: application.emergencyContactNumber ?? '',
+        vehicleType: application.vehicleType,
+        vehicleRegistrationNumber: application.vehicleRegistrationNumber,
+        vehicleMake: application.vehicleMake ?? '',
+        vehicleModel: application.vehicleModel ?? '',
+        vehicleYear: application.vehicleYear ?? '',
+        vehicleColor: application.vehicleColor ?? '',
+        ownershipType: application.ownershipType,
+        preferredArea: application.preferredArea,
+        preferredWorkingDays: application.preferredWorkingDays,
+        preferredWorkingHours: application.preferredWorkingHours ?? '',
+        deliveryExperience: application.deliveryExperience ?? '',
+        hasSmartphone: application.hasSmartphone ? 'yes' : 'no',
+        hasDeliveryBag: application.hasDeliveryBag == null ? '' : application.hasDeliveryBag ? 'yes' : 'no',
+        additionalNotes: application.additionalNotes ?? '',
+        accurate: true,
+        contactConsent: true,
+        approvalRequired: true,
+        maintainDocuments: true,
+      }));
+      setExistingDocuments(application.documents.map((document) => document.kind));
+      setLoadingApplication(false);
+    }).catch((error: unknown) => {
+      if (!active) return;
+      const { message } = parseApiError(error);
+      setSubmitError(message || 'Could not load this application for updating.');
+      setLoadingApplication(false);
+    });
+    return () => { active = false; };
+  }, [applicationId]);
 
   const set = <K extends keyof DriverFormState>(key: K, value: DriverFormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -129,14 +184,14 @@ export function JoinDriverPage() {
       if (form.emergencyContactNumber && !phoneSchema.safeParse(form.emergencyContactNumber).success) {
         next.emergencyContactNumber = 'Enter a valid contact number';
       }
-      const photoError = validateUpload(form.photo, { required: true, accept: IMAGE_TYPES, label: 'Driver profile photo' });
+      const photoError = validateUpload(form.photo, { required: !existingDocuments.includes('photo'), accept: IMAGE_TYPES, label: 'Driver profile photo' });
       if (photoError) next.photo = photoError;
     }
     if (index === 1) {
       if (!form.vehicleType) next.vehicleType = 'Select a vehicle type';
       if (!form.vehicleRegistrationNumber.trim()) next.vehicleRegistrationNumber = 'Vehicle registration number is required';
       if (!form.ownershipType) next.ownershipType = 'Select vehicle ownership type';
-      const reg = validateUpload(form.vehicleRegistrationDoc, { required: true, accept: DOCUMENT_TYPES, label: 'Vehicle registration document' });
+      const reg = validateUpload(form.vehicleRegistrationDoc, { required: !existingDocuments.includes('vehicleRegistrationDoc'), accept: DOCUMENT_TYPES, label: 'Vehicle registration document' });
       const ins = validateUpload(form.vehicleInsuranceDoc, { required: false, accept: DOCUMENT_TYPES, label: 'Vehicle insurance document' });
       const rev = validateUpload(form.revenueLicense, { required: false, accept: DOCUMENT_TYPES, label: 'Revenue license' });
       if (reg) next.vehicleRegistrationDoc = reg;
@@ -144,8 +199,8 @@ export function JoinDriverPage() {
       if (rev) next.revenueLicense = rev;
     }
     if (index === 2) {
-      const id = validateUpload(form.identityDocument, { required: true, accept: DOCUMENT_TYPES, label: 'Identity document' });
-      const front = validateUpload(form.licenseFront, { required: true, accept: DOCUMENT_TYPES, label: 'Driving license (front)' });
+      const id = validateUpload(form.identityDocument, { required: !existingDocuments.includes('identityDocument'), accept: DOCUMENT_TYPES, label: 'Identity document' });
+      const front = validateUpload(form.licenseFront, { required: !existingDocuments.includes('licenseFront'), accept: DOCUMENT_TYPES, label: 'Driving license (front)' });
       const back = validateUpload(form.licenseBack, { required: false, accept: DOCUMENT_TYPES, label: 'Driving license (back)' });
       const extra = validateUpload(form.additionalDocument, { required: false, accept: DOCUMENT_TYPES, label: 'Additional document' });
       if (id) next.identityDocument = id;
@@ -183,6 +238,7 @@ export function JoinDriverPage() {
       if (form.additionalDocument) files.additionalDocument = form.additionalDocument;
 
       const result = await applicationsApi.submitDriverApplication({
+        applicationId,
         fullName: form.fullName.trim(),
         email: form.email.trim(),
         contactNumber: form.contactNumber.trim(),
@@ -216,7 +272,7 @@ export function JoinDriverPage() {
         vehicleType: form.vehicleType,
         source: result.source,
       });
-      navigate('/join/driver/success', { replace: true });
+      navigate(applicationId ? '/my-applications' : '/join/driver/success', { replace: true });
     } catch (err) {
       const { status, message } = parseApiError(err);
       if (status === 401) {
@@ -230,6 +286,10 @@ export function JoinDriverPage() {
       setSubmitting(false);
     }
   };
+
+  if (loadingApplication) {
+    return <div className="container-app py-12 text-gray-600">Loading your application…</div>;
+  }
 
   return (
     <div className="bg-gray-50 min-h-screen">

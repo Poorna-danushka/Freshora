@@ -1,7 +1,9 @@
 package Freshora.Backend.user.dto;
 
+import java.util.UUID;
+
 public record DriverProfileResponse(
-        Long userId,
+        UUID userId,
         String email,
         String phone,
         String driverName,

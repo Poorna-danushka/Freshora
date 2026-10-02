@@ -38,6 +38,7 @@ function newestFirst<T extends { submittedAt?: string | null }>(items: T[]) {
 }
 
 export interface StoreApplicationSubmitPayload {
+  applicationId?: string;
   applicantName: string;
   email: string;
   contactNumber: string;
@@ -58,6 +59,7 @@ export interface StoreApplicationSubmitPayload {
 }
 
 export interface DriverApplicationSubmitPayload {
+  applicationId?: string;
   fullName: string;
   email: string;
   contactNumber: string;
@@ -91,6 +93,11 @@ export interface ApplicationSubmitResult {
   source: ApplicationDataSource;
 }
 
+export interface MyApplications {
+  stores: StorePartnerApplication[];
+  drivers: DriverApplication[];
+}
+
 function toFormData(fields: Record<string, string | undefined>, files: Record<string, File>) {
   const data = new FormData();
   Object.entries(fields).forEach(([key, value]) => {
@@ -104,36 +111,51 @@ function toFormData(fields: Record<string, string | undefined>, files: Record<st
 
 export const applicationsApi = {
   submitStoreApplication: async (payload: StoreApplicationSubmitPayload): Promise<ApplicationSubmitResult> => {
-    const { files, ...fields } = payload;
-    const res = await apiClient.post<{ id: string; submittedAt: string }>(
-      STORE_ENDPOINTS.submit,
-      toFormData(
-        {
-          ...fields,
-          preferredContactMethod: fields.preferredContactMethod,
-          storeType: fields.storeType,
-        },
-        files,
-      ),
+    const { files, applicationId, ...fields } = payload;
+    const formData = toFormData(
+      {
+        ...fields,
+        preferredContactMethod: fields.preferredContactMethod,
+        storeType: fields.storeType,
+      },
+      files,
     );
+    const res = applicationId
+      ? await apiClient.put<{ id: string; submittedAt: string }>(`/applications/stores/${applicationId}`, formData)
+      : await apiClient.post<{ id: string; submittedAt: string }>(STORE_ENDPOINTS.submit, formData);
     return { id: res.data.id, submittedAt: res.data.submittedAt, status: 'PENDING_REVIEW', source: 'api' };
   },
 
   submitDriverApplication: async (payload: DriverApplicationSubmitPayload): Promise<ApplicationSubmitResult> => {
-    const { files, preferredWorkingDays, hasSmartphone, hasDeliveryBag, ...fields } = payload;
-    const res = await apiClient.post<{ id: string; submittedAt: string }>(
-      DRIVER_ENDPOINTS.submit,
-      toFormData(
-        {
-          ...fields,
-          preferredWorkingDays: preferredWorkingDays.join(','),
-          hasSmartphone: String(hasSmartphone),
-          hasDeliveryBag: hasDeliveryBag === undefined ? undefined : String(hasDeliveryBag),
-        },
-        files,
-      ),
+    const { files, applicationId, preferredWorkingDays, hasSmartphone, hasDeliveryBag, ...fields } = payload;
+    const formData = toFormData(
+      {
+        ...fields,
+        preferredWorkingDays: preferredWorkingDays.join(','),
+        hasSmartphone: String(hasSmartphone),
+        hasDeliveryBag: hasDeliveryBag === undefined ? undefined : String(hasDeliveryBag),
+      },
+      files,
     );
+    const res = applicationId
+      ? await apiClient.put<{ id: string; submittedAt: string }>(`/applications/drivers/${applicationId}`, formData)
+      : await apiClient.post<{ id: string; submittedAt: string }>(DRIVER_ENDPOINTS.submit, formData);
     return { id: res.data.id, submittedAt: res.data.submittedAt, status: 'PENDING_REVIEW', source: 'api' };
+  },
+
+  getMyApplications: async (): Promise<MyApplications> => {
+    const res = await apiClient.get<MyApplications>('/applications/me');
+    return res.data;
+  },
+
+  getStoreApplication: async (id: string): Promise<StorePartnerApplication> => {
+    const res = await apiClient.get<StorePartnerApplication>(`/applications/stores/${id}`);
+    return res.data;
+  },
+
+  getDriverApplication: async (id: string): Promise<DriverApplication> => {
+    const res = await apiClient.get<DriverApplication>(`/applications/drivers/${id}`);
+    return res.data;
   },
 
   listStoreApplications: async (): Promise<ApplicationListResult<StorePartnerApplication>> => {

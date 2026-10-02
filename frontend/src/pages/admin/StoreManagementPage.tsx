@@ -10,6 +10,8 @@ import { ReviewActionDialogs } from '@/components/admin/ReviewActionDialogs';
 import { formatDateTime, storeTypeLabel } from '@/lib/onboarding';
 import { normalizeApplicationStatus, type ApplicationStatus, type ReviewAction, type StorePartnerApplication } from '@/types/applications';
 
+const EMPTY_STORE_APPLICATIONS: StorePartnerApplication[] = [];
+
 const FILTERS: Array<{ id: 'ALL' | ApplicationStatus; label: string; icon: any }> = [
   { id: 'ALL', label: 'All Applications', icon: Filter },
   { id: 'PENDING_REVIEW', label: 'Pending Review', icon: Clock },
@@ -50,7 +52,7 @@ export function StoreManagementPage() {
     },
   });
 
-  const items = listQuery.data?.items ?? [];
+  const items = listQuery.data?.items ?? EMPTY_STORE_APPLICATIONS;
 
   const counts = useMemo<Record<string, number>>(() => {
     return {
