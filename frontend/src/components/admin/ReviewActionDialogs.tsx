@@ -52,7 +52,7 @@ export function ReviewActionDialogs({ open, onClose, onConfirm, pending, error }
           <button
             type="button"
             className="px-4 py-2.5 rounded-xl bg-emerald-500 text-slate-950 font-bold disabled:opacity-50"
-            disabled={pending || (open === 'REJECT' && note.trim().length < 3)}
+            disabled={pending || (open !== 'APPROVE' && note.trim().length < 3)}
             onClick={() => onConfirm(open, note.trim())}
           >
             {pending ? 'Sending…' : copy.confirm}

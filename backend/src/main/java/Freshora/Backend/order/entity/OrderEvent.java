@@ -24,7 +24,7 @@ import java.util.UUID;
 public class OrderEvent {
     @Id
     @UuidGenerator
-    @Column(length = 36, nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

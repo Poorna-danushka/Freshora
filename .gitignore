@@ -9,4 +9,12 @@ dist/
 
 # Environment files
 .env
-.env.local
+.env.*
+!.env.example
+
+# Backend uploads and build output
+backend/uploads/
+backend/target/
+
+# Frontend build output
+frontend/dist/

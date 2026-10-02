@@ -17,17 +17,17 @@ import java.util.UUID;
 public class OrderItem {
     @Id
     @UuidGenerator
-    @Column(length = 36, nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "order_id", nullable = false)
     private Order order;
 
-    @Column(length = 36, nullable = false)
+    @Column(nullable = false)
     private UUID productId;
 
-    @Column(length = 36)
+    @Column
     private UUID substituteProductId;
 
     @Column(nullable = false)

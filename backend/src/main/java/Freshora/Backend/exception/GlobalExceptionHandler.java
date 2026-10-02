@@ -112,7 +112,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiError> handleOther(Exception ex, HttpServletRequest request) {
-        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred", request.getRequestURI(), null);
+        ex.printStackTrace();
+        return buildError(HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "An unexpected error occurred: " + ex.getMessage(), request.getRequestURI(), null);
     }
 
     private ResponseEntity<ApiError> buildError(HttpStatus status, String error, String message, String path, Map<String, String> fieldErrors) {

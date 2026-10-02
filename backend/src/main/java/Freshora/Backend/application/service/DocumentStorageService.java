@@ -40,12 +40,12 @@ public class DocumentStorageService {
         }
     }
 
-    public ApplicationDocument saveUploadedFile(MultipartFile file, ApplicationType applicationType, Long applicationId, String documentType, String label) {
+    public ApplicationDocument saveUploadedFile(MultipartFile file, ApplicationType applicationType, UUID applicationId, String documentType, String label) {
         validate(file);
 
         String originalFileName = sanitizeFileName(file.getOriginalFilename());
         String extension = extractExtension(originalFileName);
-        String storageKey = String.format(Locale.ROOT, "applications/%s/%d/%s%s",
+        String storageKey = String.format(Locale.ROOT, "applications/%s/%s/%s%s",
                 applicationType.name().toLowerCase(Locale.ROOT), applicationId, UUID.randomUUID(), extension);
         Path targetPath = rootDirectory.resolve(storageKey).normalize();
         if (!targetPath.startsWith(rootDirectory)) {

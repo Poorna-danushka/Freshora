@@ -34,12 +34,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        String accessToken = extractCookieValue(request, cookieProperties.getAccessCookieName());
+        String accessToken = extractToken(request);
 
         if (accessToken != null && !accessToken.isBlank()) {
             try {
                 if (jwtService.isTokenValid(accessToken, "access")) {
-                    Long userId = Long.parseLong(jwtService.extractSubject(accessToken));
+                    String userIdStr = jwtService.extractSubject(accessToken);
+                    java.util.UUID userId = java.util.UUID.fromString(userIdStr);
                     User user = userRepository.findById(userId).orElse(null);
 
                     if (user != null && user.isEnabled()) {
@@ -58,6 +59,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private String extractToken(HttpServletRequest request) {
+        // First check Authorization header
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+
+        // Fallback to cookie
+        return extractCookieValue(request, cookieProperties.getAccessCookieName());
     }
 
     private String extractCookieValue(HttpServletRequest request, String cookieName) {

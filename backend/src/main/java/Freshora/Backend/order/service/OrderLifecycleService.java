@@ -40,7 +40,9 @@ public class OrderLifecycleService {
     @Transactional(readOnly = true)
     public Page<OrderResponse> getCustomerOrders(User customer, Pageable pageable) {
         Page<Order> orders = orderRepository.findByCustomer_Id(customer.getId(), pageable);
-        List<UUID> orderIds = orders.getContent().stream().map(Order::getId).toList();
+        List<UUID> orderIds = orders.getContent().stream()
+                .map(order -> Objects.requireNonNull(order.getId(), "Persisted order has no ID"))
+                .toList();
         Map<UUID, List<OrderItem>> itemsByOrder = orderIds.isEmpty()
                 ? Map.of()
                 : orderItemRepository.findAllByOrder_IdIn(orderIds).stream()

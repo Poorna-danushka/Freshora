@@ -21,13 +21,13 @@ import java.util.UUID;
 public class OutboxEvent {
     @Id
     @UuidGenerator
-    @Column(length = 36, nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private UUID id;
 
     @Column(nullable = false)
     private String aggregateType;
 
-    @Column(length = 36, nullable = false)
+    @Column(nullable = false)
     private UUID aggregateId;
 
     @Column(nullable = false)

@@ -93,14 +93,22 @@ const TRUST_ITEMS = [
   { icon: CheckCircle, text: '100% satisfaction guaranteed' },
 ];
 
+const CTA_DOTS = Array.from({ length: 20 }, () => ({
+  left: `${Math.random() * 100}%`,
+  top: `${Math.random() * 100}%`,
+  animation: `pulse ${2 + Math.random() * 3}s ease-in-out infinite`,
+  animationDelay: `${Math.random() * 3}s`,
+}));
+
 // ─── Floating particle component ──────────────────────────────────────────────
 function FloatingParticle({ emoji, style }: { emoji: string; style: React.CSSProperties }) {
+  const seed = emoji.codePointAt(0) ?? 0;
   return (
     <div
       className="absolute text-2xl opacity-30 pointer-events-none select-none"
       style={{
-        animation: `float ${3 + Math.random() * 4}s ease-in-out infinite`,
-        animationDelay: `${Math.random() * 3}s`,
+        animation: `float ${3 + seed % 4}s ease-in-out infinite`,
+        animationDelay: `${seed % 3}s`,
         ...style,
       }}
     >
@@ -592,16 +600,11 @@ export function LandingPage() {
       <section className="py-20 relative overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800">
         {/* Animated background dots */}
         <div className="absolute inset-0 opacity-10">
-          {[...Array(20)].map((_, i) => (
+          {CTA_DOTS.map((dot, i) => (
             <div
               key={i}
               className="absolute w-2 h-2 bg-white rounded-full"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `${Math.random() * 100}%`,
-                animation: `pulse ${2 + Math.random() * 3}s ease-in-out infinite`,
-                animationDelay: `${Math.random() * 3}s`,
-              }}
+              style={dot}
             />
           ))}
         </div>

@@ -1,3 +1,0 @@
-UPDATE users
-SET role = 'DRIVER'
-WHERE role = 'DELIVERY_RIDER';

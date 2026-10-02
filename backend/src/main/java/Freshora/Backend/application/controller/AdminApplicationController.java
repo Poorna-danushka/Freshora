@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -36,12 +37,12 @@ public class AdminApplicationController {
     }
 
     @GetMapping("/store-applications/{id}")
-    public StoreApplicationResponse getStoreApplication(@PathVariable Long id) {
+    public StoreApplicationResponse getStoreApplication(@PathVariable UUID id) {
         return storeApplicationService.getByIdForAdmin(id);
     }
 
     @PostMapping("/store-applications/{id}/approve")
-    public MessageResponse approveStoreApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse approveStoreApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("APPROVE", null);
@@ -50,7 +51,7 @@ public class AdminApplicationController {
     }
 
     @PostMapping("/store-applications/{id}/reject")
-    public MessageResponse rejectStoreApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse rejectStoreApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("REJECT", null);
@@ -61,7 +62,7 @@ public class AdminApplicationController {
     }
 
     @PostMapping("/store-applications/{id}/request-information")
-    public MessageResponse requestInfoStoreApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse requestInfoStoreApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("REQUEST_MORE_INFO", null);
@@ -79,12 +80,12 @@ public class AdminApplicationController {
     }
 
     @GetMapping("/driver-applications/{id}")
-    public DriverApplicationResponse getDriverApplication(@PathVariable Long id) {
+    public DriverApplicationResponse getDriverApplication(@PathVariable UUID id) {
         return driverApplicationService.getByIdForAdmin(id);
     }
 
     @PostMapping("/driver-applications/{id}/approve")
-    public MessageResponse approveDriverApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse approveDriverApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("APPROVE", null);
@@ -93,7 +94,7 @@ public class AdminApplicationController {
     }
 
     @PostMapping("/driver-applications/{id}/reject")
-    public MessageResponse rejectDriverApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse rejectDriverApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("REJECT", null);
@@ -104,7 +105,7 @@ public class AdminApplicationController {
     }
 
     @PostMapping("/driver-applications/{id}/request-information")
-    public MessageResponse requestInfoDriverApplication(Authentication authentication, @PathVariable Long id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
+    public MessageResponse requestInfoDriverApplication(Authentication authentication, @PathVariable UUID id, @RequestBody(required = false) ApplicationReviewActionRequest request) {
         User reviewer = (User) authentication.getPrincipal();
         if (request == null) {
             request = new ApplicationReviewActionRequest("REQUEST_MORE_INFO", null);

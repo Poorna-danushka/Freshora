@@ -55,7 +55,7 @@ public class UserProfileController {
 
     @PutMapping("/users/me/addresses/{id}")
     public AddressResponse updateAddress(Authentication authentication,
-                                        @PathVariable Long id,
+                                        @PathVariable java.util.UUID id,
                                         @Valid @RequestBody UpdateAddressRequest request) {
         User currentUser = userService.findByEmail(authentication.getName());
         return userProfileService.updateAddress(currentUser, id, request);
@@ -63,13 +63,13 @@ public class UserProfileController {
 
     @DeleteMapping("/users/me/addresses/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    public void deleteAddress(Authentication authentication, @PathVariable Long id) {
+    public void deleteAddress(Authentication authentication, @PathVariable java.util.UUID id) {
         User currentUser = userService.findByEmail(authentication.getName());
         userProfileService.deleteAddress(currentUser, id);
     }
 
     @PatchMapping("/users/me/addresses/{id}/default")
-    public AddressResponse setDefaultAddress(Authentication authentication, @PathVariable Long id) {
+    public AddressResponse setDefaultAddress(Authentication authentication, @PathVariable java.util.UUID id) {
         User currentUser = userService.findByEmail(authentication.getName());
         return userProfileService.setDefaultAddress(currentUser, id);
     }

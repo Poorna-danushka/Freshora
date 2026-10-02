@@ -57,6 +57,7 @@ export function JoinDriverSuccessPage() {
         </ol>
 
         <div className="flex flex-col sm:flex-row gap-3">
+          <Link to="/my-applications" className="btn-secondary justify-center">View my applications</Link>
           <Link to="/" className="btn-primary justify-center">Return to Home</Link>
           <a href="mailto:partnerships@freshora.lk" className="btn-secondary justify-center">Contact Freshora</a>
         </div>

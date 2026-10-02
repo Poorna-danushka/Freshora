@@ -9,6 +9,8 @@ import { ReviewActionDialogs } from '@/components/admin/ReviewActionDialogs';
 import { formatDateTime, ownershipLabel, vehicleTypeLabel } from '@/lib/onboarding';
 import { normalizeApplicationStatus, type ApplicationStatus, type DriverApplication, type ReviewAction } from '@/types/applications';
 
+const EMPTY_DRIVER_APPLICATIONS: DriverApplication[] = [];
+
 const FILTERS: Array<{ id: 'ALL' | ApplicationStatus; label: string; icon: any }> = [
   { id: 'ALL', label: 'All Drivers', icon: Filter },
   { id: 'PENDING_REVIEW', label: 'Pending Review', icon: Clock },
@@ -49,7 +51,7 @@ export function DriverManagementPage() {
     },
   });
 
-  const items = listQuery.data?.items ?? [];
+  const items = listQuery.data?.items ?? EMPTY_DRIVER_APPLICATIONS;
 
   const counts = useMemo<Record<string, number>>(() => {
     return {

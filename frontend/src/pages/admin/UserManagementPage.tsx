@@ -4,6 +4,8 @@ import { Search, RefreshCw, Users, Shield, Plus, CheckCircle2, Clock } from 'luc
 import { authApi } from '@/api/auth';
 import type { User } from '@/types';
 
+const EMPTY_USERS: User[] = [];
+
 const ROLES = [
   { id: 'ALL', label: 'All Users' },
   { id: 'ADMIN', label: 'Administrators' },
@@ -48,7 +50,7 @@ export function UserManagementPage() {
     },
   });
 
-  const userList = usersQuery.data ?? [];
+  const userList = usersQuery.data ?? EMPTY_USERS;
 
   const rows = useMemo(() => {
     return userList.filter((user) => {

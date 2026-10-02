@@ -6,47 +6,44 @@ import Freshora.Backend.auth.dto.LoginRequest;
 import Freshora.Backend.auth.dto.MessageResponse;
 import Freshora.Backend.auth.dto.RegisterRequest;
 import Freshora.Backend.auth.dto.UserResponse;
-import Freshora.Backend.auth.entity.AccountSetupToken;
-import Freshora.Backend.auth.entity.PasswordResetToken;
-import Freshora.Backend.auth.entity.RefreshToken;
-import Freshora.Backend.auth.repository.AccountSetupTokenRepository;
-import Freshora.Backend.auth.repository.PasswordResetTokenRepository;
-import Freshora.Backend.auth.repository.RefreshTokenRepository;
-import Freshora.Backend.auth.security.JwtService;
-import Freshora.Backend.config.CookieProperties;
-import Freshora.Backend.config.CookieSupport;
+import Freshora.Backend.auth.entity.AuthToken;
+import Freshora.Backend.auth.entity.AuthTokenType;
+import Freshora.Backend.auth.repository.AuthTokenRepository;
 import Freshora.Backend.exception.AuthenticationException;
 import Freshora.Backend.exception.ConflictException;
-import Freshora.Backend.exception.ResourceNotFoundException;
 import Freshora.Backend.user.entity.AccountStatus;
 import Freshora.Backend.user.entity.Role;
+import Freshora.Backend.user.entity.RoleEntity;
 import Freshora.Backend.user.entity.User;
+import Freshora.Backend.user.repository.RoleRepository;
 import Freshora.Backend.user.repository.UserRepository;
-import jakarta.servlet.http.Cookie;
+import Freshora.Backend.user.service.UserService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.BadCredentialsException;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.Arrays;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
     private final UserRepository userRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
-    private final AccountSetupTokenRepository accountSetupTokenRepository;
+    private final RoleRepository roleRepository;
+    private final AuthTokenRepository authTokenRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final CookieSupport cookieSupport;
-    private final CookieProperties cookieProperties;
+    private final AuthenticationService authenticationService;
+    private final TokenService tokenService;
+    private final UserService userService;
     private final EmailService emailService;
 
     @Transactional
@@ -56,34 +53,55 @@ public class AuthService {
             throw new ConflictException("Email already exists");
         }
 
+        RoleEntity customerRole = roleRepository != null
+                ? roleRepository.findByName(Role.CUSTOMER).orElse(RoleEntity.of(Role.CUSTOMER))
+                : RoleEntity.of(Role.CUSTOMER);
+        Set<RoleEntity> roles = new HashSet<>();
+        roles.add(customerRole);
+
         User user = User.builder()
                 .firstName(request.firstName().trim())
                 .lastName(request.lastName().trim())
                 .email(normalizedEmail)
+                .phone("+94" + UUID.randomUUID().toString().replaceAll("[^0-9]", "").substring(0, 9))
                 .password(passwordEncoder.encode(request.password()))
-                .role(Role.CUSTOMER)
-                .enabled(true)
+                .roles(roles)
                 .status(AccountStatus.ACTIVE)
                 .build();
 
         User savedUser = userRepository.save(user);
 
-        // Issue tokens immediately so the user is logged in after registration
-        String accessToken = jwtService.generateAccessToken(savedUser);
-        String refreshToken = jwtService.generateRefreshToken(savedUser);
-        String refreshJti = jwtService.extractJti(refreshToken);
+        return tokenService.issueAuthenticationTokens(savedUser, response, "Registration successful");
+    }
 
-        RefreshToken refreshTokenRecord = RefreshToken.builder()
-                .user(savedUser)
-                .tokenId(refreshJti)
-                .expiresAt(Instant.now().plusMillis(jwtService.getRefreshExpirationMs()))
-                .build();
-        refreshTokenRepository.save(refreshTokenRecord);
+    @Transactional
+    public AuthResponse login(LoginRequest request, HttpServletResponse response) {
+        return authenticationService.login(request, response);
+    }
 
-        cookieSupport.addAccessTokenCookie(response, accessToken, jwtService.getAccessExpirationMs());
-        cookieSupport.addRefreshTokenCookie(response, refreshToken, jwtService.getRefreshExpirationMs());
+    @Transactional
+    public MessageResponse logout(HttpServletRequest request, HttpServletResponse response) {
+        return authenticationService.logout(request, response);
+    }
 
-        return new AuthResponse("Registration successful", toUserResponse(savedUser));
+    @Transactional
+    public MessageResponse refresh(HttpServletRequest request, HttpServletResponse response) {
+        return authenticationService.refresh(request, response);
+    }
+
+    @Transactional
+    public MessageResponse requestPasswordReset(String email) {
+        return authenticationService.requestPasswordReset(email);
+    }
+
+    @Transactional
+    public MessageResponse resetPassword(String token, String newPassword) {
+        return authenticationService.resetPassword(token, newPassword);
+    }
+
+    @Transactional
+    public MessageResponse changePassword(User currentUser, String currentPassword, String newPassword) {
+        return authenticationService.changePassword(currentUser, currentPassword, newPassword);
     }
 
     @Transactional
@@ -96,175 +114,27 @@ public class AuthService {
             throw new ConflictException("Customer accounts must use public signup");
         }
 
+        RoleEntity staffRole = roleRepository != null
+                ? roleRepository.findByName(request.role()).orElse(RoleEntity.of(request.role()))
+                : RoleEntity.of(request.role());
+        Set<RoleEntity> roles = new HashSet<>();
+        roles.add(staffRole);
+
         User user = User.builder()
                 .firstName(request.firstName().trim())
                 .lastName(request.lastName().trim())
                 .email(normalizedEmail)
-                .password(passwordEncoder.encode(request.password()))
-                .role(request.role())
-                .enabled(true)
-                .status(AccountStatus.ACTIVE)
+                .phone("+94" + UUID.randomUUID().toString().replaceAll("[^0-9]", "").substring(0, 9))
+                .password(passwordEncoder.encode(UUID.randomUUID().toString()))
+                .roles(roles)
+                .status(AccountStatus.PENDING)
                 .build();
 
-        return toUserResponse(userRepository.save(user));
-    }
+        User savedUser = userRepository.save(user);
+        String token = createAccountSetupToken(savedUser);
+        emailService.sendAccountSetupEmail(savedUser.getEmail(), token);
 
-    @Transactional
-    public AuthResponse login(LoginRequest request, HttpServletResponse response) {
-        String normalizedEmail = normalizeEmail(request.email());
-        User user = userRepository.findByEmail(normalizedEmail)
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password"));
-
-        if (!passwordEncoder.matches(request.password(), user.getPassword())) {
-            throw new BadCredentialsException("Invalid email or password");
-        }
-
-        if (!user.isEnabled()) {
-            String message = switch (user.getStatus()) {
-                case PENDING -> "Account setup is not complete";
-                case SUSPENDED -> "Account is suspended";
-                case DISABLED -> "Account is disabled";
-                case ACTIVE -> "Account is disabled";
-            };
-            throw new AuthenticationException(message);
-        }
-
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-        String refreshJti = jwtService.extractJti(refreshToken);
-
-        refreshTokenRepository.deleteByUser(user);
-        RefreshToken refreshTokenRecord = RefreshToken.builder()
-                .user(user)
-                .tokenId(refreshJti)
-                .expiresAt(Instant.now().plusMillis(jwtService.getRefreshExpirationMs()))
-                .build();
-        refreshTokenRepository.save(refreshTokenRecord);
-
-        cookieSupport.addAccessTokenCookie(response, accessToken, jwtService.getAccessExpirationMs());
-        cookieSupport.addRefreshTokenCookie(response, refreshToken, jwtService.getRefreshExpirationMs());
-
-        return new AuthResponse("Login successful", toUserResponse(user));
-    }
-
-    @Transactional
-    public MessageResponse refresh(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenValue = extractCookieValue(request, cookieProperties.getRefreshCookieName());
-        if (refreshTokenValue == null || refreshTokenValue.isBlank()) {
-            throw new AuthenticationException("Refresh token is missing");
-        }
-
-        if (!jwtService.isTokenValid(refreshTokenValue, "refresh")) {
-            throw new AuthenticationException("Refresh token is invalid");
-        }
-
-        String tokenId = jwtService.extractJti(refreshTokenValue);
-        RefreshToken storedToken = refreshTokenRepository.findByTokenId(tokenId)
-                .orElseThrow(() -> new AuthenticationException("Refresh token not found"));
-
-        if (storedToken.isRevoked() || storedToken.isExpired()) {
-            throw new AuthenticationException("Refresh token has been revoked or expired");
-        }
-
-        User user = storedToken.getUser();
-        if (!user.isEnabled()) {
-            throw new AuthenticationException("User account is not active");
-        }
-
-        storedToken.setRevokedAt(Instant.now());
-        refreshTokenRepository.save(storedToken);
-
-        String newAccessToken = jwtService.generateAccessToken(user);
-        String newRefreshToken = jwtService.generateRefreshToken(user);
-        String newRefreshJti = jwtService.extractJti(newRefreshToken);
-
-        RefreshToken newStoredToken = RefreshToken.builder()
-                .user(user)
-                .tokenId(newRefreshJti)
-                .expiresAt(Instant.now().plusMillis(jwtService.getRefreshExpirationMs()))
-                .build();
-        refreshTokenRepository.save(newStoredToken);
-
-        cookieSupport.addAccessTokenCookie(response, newAccessToken, jwtService.getAccessExpirationMs());
-        cookieSupport.addRefreshTokenCookie(response, newRefreshToken, jwtService.getRefreshExpirationMs());
-
-        return new MessageResponse("Token refreshed");
-    }
-
-    @Transactional
-    public MessageResponse logout(HttpServletRequest request, HttpServletResponse response) {
-        String refreshTokenValue = extractCookieValue(request, cookieProperties.getRefreshCookieName());
-        cookieSupport.clearCookie(response, cookieProperties.getAccessCookieName(), "/");
-        cookieSupport.clearCookie(response, cookieProperties.getRefreshCookieName(), "/api/auth");
-        if (refreshTokenValue != null && jwtService.isTokenValid(refreshTokenValue, "refresh")) {
-            String tokenId = jwtService.extractJti(refreshTokenValue);
-            refreshTokenRepository.findByTokenId(tokenId).ifPresent(token -> {
-                token.setRevokedAt(Instant.now());
-                refreshTokenRepository.save(token);
-            });
-        }
-        return new MessageResponse("Logout successful");
-    }
-
-    @Transactional
-    public MessageResponse requestPasswordReset(String email) {
-        String normalizedEmail = normalizeEmail(email);
-        if (normalizedEmail == null || normalizedEmail.isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
-
-        userRepository.findByEmail(normalizedEmail).ifPresent(user -> {
-            String token = createPasswordResetToken(user);
-            emailService.sendPasswordResetEmail(user.getEmail(), token);
-        });
-
-        return new MessageResponse("If an account exists for this email, a reset link was sent");
-    }
-
-    @Transactional
-    public MessageResponse resetPassword(String token, String newPassword) {
-        String rawToken = token == null ? null : token.trim();
-        if (rawToken == null || rawToken.isBlank()) {
-            throw new IllegalArgumentException("Reset token is required");
-        }
-        if (newPassword == null || newPassword.length() < 8) {
-            throw new IllegalArgumentException("Password must be at least 8 characters");
-        }
-
-        PasswordResetToken matchingToken = findMatchingPasswordResetToken(rawToken);
-        User user = matchingToken.getUser();
-
-        if (user == null || !user.isEnabled()) {
-            throw new AuthenticationException("User account is not active");
-        }
-
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(user);
-        refreshTokenRepository.deleteByUser(user);
-
-        matchingToken.setUsedAt(Instant.now());
-        passwordResetTokenRepository.save(matchingToken);
-        passwordResetTokenRepository.deleteByUser(user);
-
-        return new MessageResponse("Password reset successful");
-    }
-
-    @Transactional
-    public MessageResponse changePassword(User currentUser, String currentPassword, String newPassword) {
-        if (currentUser == null) {
-            throw new AuthenticationException("Authentication required");
-        }
-        if (!passwordEncoder.matches(currentPassword, currentUser.getPassword())) {
-            throw new AuthenticationException("Current password is incorrect");
-        }
-        if (newPassword == null || newPassword.length() < 8) {
-            throw new IllegalArgumentException("New password must be at least 8 characters");
-        }
-
-        currentUser.setPassword(passwordEncoder.encode(newPassword));
-        userRepository.save(currentUser);
-        refreshTokenRepository.deleteByUser(currentUser);
-        return new MessageResponse("Password changed successfully");
+        return userService.getUserResponseById(savedUser.getId());
     }
 
     @Transactional
@@ -277,7 +147,7 @@ public class AuthService {
             throw new IllegalArgumentException("Password must be at least 8 characters");
         }
 
-        AccountSetupToken matchingToken = findMatchingAccountSetupToken(rawToken);
+        AuthToken matchingToken = findMatchingAccountSetupToken(rawToken);
         User user = matchingToken.getUser();
 
         if (user.getStatus() == AccountStatus.ACTIVE && user.isEnabled()) {
@@ -286,12 +156,11 @@ public class AuthService {
 
         user.setPassword(passwordEncoder.encode(password));
         user.setStatus(AccountStatus.ACTIVE);
-        user.setEnabled(true);
         userRepository.save(user);
 
-        matchingToken.setUsedAt(Instant.now());
-        accountSetupTokenRepository.save(matchingToken);
-        accountSetupTokenRepository.deleteByUser(user);
+        matchingToken.setRevokedAt(Instant.now());
+        authTokenRepository.save(matchingToken);
+        authTokenRepository.deleteByUserAndType(user, AuthTokenType.VERIFY);
 
         return new MessageResponse("Account setup complete");
     }
@@ -299,10 +168,11 @@ public class AuthService {
     @Transactional
     public String createPasswordResetToken(User user) {
         String rawToken = UUID.randomUUID().toString().replace("-", "");
-        passwordResetTokenRepository.deleteByUser(user);
-        passwordResetTokenRepository.save(PasswordResetToken.builder()
+        authTokenRepository.deleteByUserAndType(user, AuthTokenType.RESET);
+        authTokenRepository.save(AuthToken.builder()
                 .user(user)
                 .tokenHash(passwordEncoder.encode(rawToken))
+                .type(AuthTokenType.RESET)
                 .expiresAt(Instant.now().plus(1, ChronoUnit.HOURS))
                 .build());
         return rawToken;
@@ -311,61 +181,32 @@ public class AuthService {
     @Transactional
     public String createAccountSetupToken(User user) {
         String rawToken = UUID.randomUUID().toString().replace("-", "");
-        accountSetupTokenRepository.deleteByUser(user);
-        accountSetupTokenRepository.save(AccountSetupToken.builder()
+        authTokenRepository.deleteByUserAndType(user, AuthTokenType.VERIFY);
+        authTokenRepository.save(AuthToken.builder()
                 .user(user)
                 .tokenHash(passwordEncoder.encode(rawToken))
+                .type(AuthTokenType.VERIFY)
                 .expiresAt(Instant.now().plus(7, ChronoUnit.DAYS))
                 .build());
         return rawToken;
     }
 
     public UserResponse me(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
-        return toUserResponse(user);
+        return userService.getUserResponseByEmail(email);
     }
 
-    private PasswordResetToken findMatchingPasswordResetToken(String rawToken) {
-        Instant now = Instant.now();
-        for (PasswordResetToken candidate : passwordResetTokenRepository
-                .findByUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(now)) {
-            if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
-                return candidate;
-            }
-        }
-        throw new AuthenticationException("Password reset token is invalid or expired");
-    }
-
-    private AccountSetupToken findMatchingAccountSetupToken(String rawToken) {
-        Instant now = Instant.now();
-        for (AccountSetupToken candidate : accountSetupTokenRepository
-                .findByUsedAtIsNullAndExpiresAtAfterOrderByCreatedAtDesc(now)) {
-            if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
-                return candidate;
+    private AuthToken findMatchingAccountSetupToken(String rawToken) {
+        for (AuthToken candidate : authTokenRepository.findAll()) {
+            if (candidate.getType() == AuthTokenType.VERIFY && !candidate.isExpired() && !candidate.isRevoked()) {
+                if (passwordEncoder.matches(rawToken, candidate.getTokenHash())) {
+                    return candidate;
+                }
             }
         }
         throw new AuthenticationException("Account setup token is invalid or expired");
     }
 
-    private UserResponse toUserResponse(User user) {
-        return new UserResponse(user.getId(), user.getFirstName(), user.getLastName(), user.getEmail(), user.getRole());
-    }
-
     private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
-    }
-
-    private String extractCookieValue(HttpServletRequest request, String cookieName) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies == null) {
-            return null;
-        }
-
-        return Arrays.stream(cookies)
-                .filter(cookie -> cookieName.equals(cookie.getName()))
-                .map(cookie -> cookie.getValue())
-                .findFirst()
-                .orElse(null);
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

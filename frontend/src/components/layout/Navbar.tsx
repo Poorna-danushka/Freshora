@@ -304,6 +304,11 @@ export function Navbar() {
                           <Link to="/admin/driver-management" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">Driver Management</Link>
                         </>
                       )}
+                      {user?.role === 'CUSTOMER' && (
+                        <Link to="/my-applications" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">
+                          My Applications
+                        </Link>
+                      )}
                       {user?.role === 'STORE_MANAGER' && (
                         <Link to="/store/staff" onClick={() => setDropdownOpen(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 text-sm text-gray-700">Store staff</Link>
                       )}

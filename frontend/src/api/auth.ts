@@ -109,4 +109,9 @@ export const authApi = {
   forgotPassword: async (email: string): Promise<void> => {
     await apiClient.post('/auth/forgot-password', { email });
   },
+
+  setupAccount: async (token: string, password: string): Promise<void> => {
+    await ensureCsrf();
+    await apiClient.post('/auth/setup-account', { token, password });
+  },
 };

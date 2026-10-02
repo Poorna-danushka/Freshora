@@ -20,6 +20,8 @@ import { ForgotPasswordPage } from '@/pages/ForgotPasswordPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import ProfilePage from '@/pages/ProfilePage';
 import { UserDashboardPage } from '@/pages/UserDashboardPage';
+import { MyApplicationsPage } from '@/pages/MyApplicationsPage';
+import { AccountSetupPage } from '@/pages/AccountSetupPage';
 import { AdminDashboardPage } from '@/pages/AdminDashboardPage';
 import { RoleDashboardPage } from '@/pages/RoleDashboardPage';
 import { JoinFreshoraPage } from '@/pages/JoinFreshoraPage';
@@ -93,6 +95,7 @@ export default function App() {
                 <Route path="/orders" element={<OrderHistoryPage />} />
                 <Route path="/track/:orderId" element={<OrderTrackingPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/my-applications" element={<MyApplicationsPage />} />
               </Route>
             </Route>
 
@@ -103,13 +106,11 @@ export default function App() {
             </Route>
 
             <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
-              <Route element={<MainLayout />}>
-                <Route element={<AdminLayout />}>
-                  <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
-                  <Route path="/admin/store-management" element={<StoreManagementPage />} />
-                  <Route path="/admin/driver-management" element={<DriverManagementPage />} />
-                  <Route path="/admin/user-management" element={<UserManagementPage />} />
-                </Route>
+              <Route element={<AdminLayout />}>
+                <Route path="/admin-dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/store-management" element={<StoreManagementPage />} />
+                <Route path="/admin/driver-management" element={<DriverManagementPage />} />
+                <Route path="/admin/user-management" element={<UserManagementPage />} />
               </Route>
             </Route>
 
@@ -146,6 +147,10 @@ export default function App() {
                 <Route path="/signup" element={<SignupPage />} />
                 <Route path="/forgot-password" element={<ForgotPasswordPage />} />
               </Route>
+            </Route>
+
+            <Route element={<AuthLayout />}>
+              <Route path="/setup-account" element={<AccountSetupPage />} />
             </Route>
 
             <Route path="*" element={<NotFoundPage />} />

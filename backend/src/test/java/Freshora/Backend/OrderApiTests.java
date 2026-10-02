@@ -1,7 +1,6 @@
 package Freshora.Backend;
 
 import Freshora.Backend.order.catalog.CatalogPort;
-import Freshora.Backend.order.entity.Order;
 import Freshora.Backend.order.entity.OrderEvent;
 import Freshora.Backend.order.repository.*;
 import Freshora.Backend.user.entity.Address;
@@ -94,7 +93,7 @@ class OrderApiTests {
         requestJson = """
                 {
                   "storeId": "%s",
-                  "addressId": %d,
+                  "addressId": "%s",
                   "couponCode": null,
                   "paymentMethod": "CARD",
                   "items": [{"productId": "%s", "quantity": 2}]
@@ -235,8 +234,8 @@ class OrderApiTests {
                 .build());
         Address otherAddress = saveAddress(otherCustomer);
         String foreignAddressRequest = requestJson.replace(
-                "\"addressId\": " + ownedAddress.getId(),
-                "\"addressId\": " + otherAddress.getId());
+                "\"addressId\": \"" + ownedAddress.getId() + "\"",
+                "\"addressId\": \"" + otherAddress.getId() + "\"");
 
         mockMvc.perform(post("/api/v1/orders")
                         .with(user(customer))
